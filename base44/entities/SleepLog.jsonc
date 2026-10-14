@@ -1,0 +1,37 @@
+{
+  "name": "SleepLog",
+  "type": "object",
+  "properties": {
+    "crew_id": {
+      "type": "string",
+      "title": "Crew member id"
+    },
+    "crew_name": {
+      "type": "string",
+      "title": "Crew member"
+    },
+    "log_date": {
+      "type": "string",
+      "format": "date",
+      "title": "Date"
+    },
+    "sleep_time": {
+      "type": "string",
+      "title": "Time fell asleep"
+    },
+    "wake_time": {
+      "type": "string",
+      "title": "Time woke up"
+    },
+    "hours": {
+      "type": "number",
+      "title": "Hours of sleep"
+    }
+  },
+  "required": [
+    "log_date",
+    "sleep_time",
+    "wake_time",
+    "hours"
+  ]
+}

@@ -1,0 +1,37 @@
+{
+  "name": "MealLog",
+  "type": "object",
+  "properties": {
+    "crew_id": {
+      "type": "string",
+      "title": "Crew member id"
+    },
+    "crew_name": {
+      "type": "string",
+      "title": "Crew member"
+    },
+    "log_date": {
+      "type": "string",
+      "format": "date",
+      "title": "Date"
+    },
+    "food_name": {
+      "type": "string",
+      "title": "Food"
+    },
+    "amount": {
+      "type": "number",
+      "title": "Amount"
+    },
+    "unit": {
+      "type": "string",
+      "title": "Unit"
+    }
+  },
+  "required": [
+    "log_date",
+    "food_name",
+    "amount",
+    "unit"
+  ]
+}

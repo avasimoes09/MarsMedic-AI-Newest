@@ -1,0 +1,44 @@
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import PageHeader from '@/components/PageHeader';
+import { Activity, RotateCcw } from 'lucide-react';
+
+const FLOW = {
+  start: { type: 'q', text: 'Patient Conscious?', opts: [{ l: 'YES', n: 'breathing_q' }, { l: 'NO', n: 'conscious_no' }] },
+  conscious_no: { type: 'a', text: 'No response detected. Open airway using head-tilt / chin-lift. Look, listen & feel for breathing for 10 seconds.', opts: [{ l: 'Continue', n: 'breathing_q' }] },
+  breathing_q: { type: 'q', text: 'Patient Breathing?', opts: [{ l: 'YES', n: 'breathing_yes' }, { l: 'NO', n: 'breathing_no' }] },
+  breathing_yes: { type: 'a', text: 'Breathing present. Keep airway clear. Place in recovery position unless spinal injury suspected. Monitor continuously.', opts: [{ l: 'Continue', n: 'pulse_q' }] },
+  breathing_no: { type: 'a', text: 'NOT breathing. Alert Mission Control. Begin rescue breathing: 1 breath every 5–6 seconds. Prepare for CPR.', opts: [{ l: 'Continue', n: 'pulse_q' }] },
+  pulse_q: { type: 'q', text: 'Pulse Present?', opts: [{ l: 'YES', n: 'pulse_yes' }, { l: 'NO', n: 'pulse_no' }] },
+  pulse_yes: { type: 'a', text: 'Pulse present. Monitor vitals. Keep patient warm. Record ECG. Prepare Earth Alert Packet for transmission.', opts: [{ l: 'Generate Earth Alert', n: 'earth' }, { l: 'Restart Protocol', n: 'start' }] },
+  pulse_no: { type: 'a', text: 'No pulse. Begin CPR: 30 chest compressions + 2 rescue breaths. Rate 100–120/min, depth 5–6cm. Continue until pulse returns or Mission Control advises.', opts: [{ l: 'Pulse Returned', n: 'pulse_yes' }, { l: 'Continue CPR', n: 'pulse_no' }, { l: 'Restart Protocol', n: 'start' }] },
+  earth: { type: 'a', text: 'Routing to Earth Alert Packet generator…', opts: [{ l: 'Open Earth Alert', n: 'goto_earth' }] },
+};
+
+export default function MedicalCopilot() {
+  const [node, setNode] = useState('start');
+  const navigate = useNavigate();
+  const cur = FLOW[node];
+  const go = (n) => { if (n === 'goto_earth') { navigate('/earth-alert'); return; } setNode(n); };
+  const isQ = cur.type === 'q';
+
+  return (
+    <div>
+      <PageHeader title="Medical Copilot" subtitle="Emergency step-by-step assistant" icon={Activity} />
+      <div className="panel panel-glow p-6">
+        <div className="mb-4 flex items-center gap-2 text-red-400"><Activity className="h-5 w-5" /><span className="text-xs font-semibold uppercase tracking-wide">Emergency Protocol Active</span></div>
+        <div className={`rounded-lg border p-6 ${isQ ? 'border-blue-800 bg-blue-950/40' : 'border-amber-800 bg-amber-950/40'}`}>
+          <div className="text-xl font-semibold text-slate-100">{cur.text}</div>
+        </div>
+        <div className="mt-6 grid gap-3 sm:grid-cols-2">
+          {cur.opts.map((o) => (
+            <button key={o.l} onClick={() => go(o.n)} className="btn-mission py-5 text-base">{o.l}</button>
+          ))}
+        </div>
+      </div>
+      <div className="mt-4 flex justify-center">
+        <button onClick={() => setNode('start')} className="inline-flex items-center gap-1 text-xs text-blue-400 hover:underline"><RotateCcw className="h-3.5 w-3.5" /> Restart Protocol</button>
+      </div>
+    </div>
+  );
+}
