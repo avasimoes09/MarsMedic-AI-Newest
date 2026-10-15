@@ -1,5 +1,24 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 
+function decodeSFloat(dataView, offset) {
+  const raw = dataView.getUint16(offset, true);
+  let mantissa = raw & 0x0fff;
+  if (mantissa >= 0x0800) mantissa -= 0x1000;
+  let exponent = (raw >> 12) & 0x0f;
+  if (exponent >= 0x08) exponent -= 0x10;
+  return mantissa * (10 ** exponent);
+}
+
+export function decodeBloodPressureMeasurement(dataView) {
+  if (dataView.byteLength < 7) throw new RangeError('Blood-pressure measurement is incomplete.');
+  const flags = dataView.getUint8(0);
+  const multiplier = flags & 1 ? 7.50062 : 1;
+  return {
+    bpSys: Math.round(decodeSFloat(dataView, 1) * multiplier),
+    bpDia: Math.round(decodeSFloat(dataView, 3) * multiplier),
+  };
+}
+
 // Reusable Web Bluetooth (BLE) hook for streaming vital signs from GATT monitors.
 // Supports Heart Rate (0x180D), Pulse Oximeter Spot-Check (0x1822), Temperature (0x1809).
 // Falls back to a built-in simulator when Web Bluetooth is unavailable (e.g. preview, iOS).
@@ -32,8 +51,8 @@ export function useVitalDevice() {
     try {
       setStatus('scanning');
       const device = await navigator.bluetooth.requestDevice({
-        filters: [{ services: ['heart_rate'] }, { services: [0x1822] }, { services: [0x1809] }],
-        optionalServices: ['heart_rate', 0x1822, 0x1809, 'device_information'],
+        filters: [{ services: ['heart_rate'] }, { services: ['blood_pressure'] }, { services: [0x1822] }, { services: [0x1809] }],
+        optionalServices: ['heart_rate', 'blood_pressure', 0x1822, 0x1809, 'device_information'],
       });
       deviceRef.current = device;
       device.addEventListener('gattserverdisconnected', disconnect);
@@ -52,6 +71,19 @@ export function useVitalDevice() {
           const hr = flags & 1 ? dv.getUint16(1, true) : dv.getUint8(1);
           setReadings((r) => ({ ...r, hr }));
           setWaveform((w) => [...w.slice(-80), hr]);
+        });
+        await chr.startNotifications();
+      } catch {}
+
+      // Blood Pressure service (0x1810); measurement values are IEEE-11073 SFLOATs.
+      try {
+        const svc = await server.getPrimaryService('blood_pressure');
+        const chr = await svc.getCharacteristic('blood_pressure_measurement');
+        chr.addEventListener('characteristicvaluechanged', (e) => {
+          try {
+            const reading = decodeBloodPressureMeasurement(e.target.value);
+            setReadings((r) => ({ ...r, ...reading }));
+          } catch { /* ignore incomplete monitor packets */ }
         });
         await chr.startNotifications();
       } catch {}
@@ -109,7 +141,12 @@ export function useVitalDevice() {
     }, 600);
   }, []);
 
-  useEffect(() => () => { if (simRef.current) clearInterval(simRef.current); }, []);
+  useEffect(() => () => {
+    if (simRef.current) clearInterval(simRef.current);
+    if (serverRef.current) {
+      try { serverRef.current.disconnect(); } catch { /* device may already be disconnected */ }
+    }
+  }, []);
 
   return { status, deviceName, readings, waveform, supported, connect, disconnect, simulate };
 }

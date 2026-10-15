@@ -1,93 +1,252 @@
-import React, { createContext, useContext, useState, useCallback, useMemo } from 'react';
-import { CREW } from './missionData';
+import React, { createContext, useContext, useEffect, useState, useCallback, useMemo, useRef } from 'react';
+import { startAuthentication, startRegistration } from '@simplewebauthn/browser';
+import { localApi } from '@/lib/localApi';
 
 const MissionContext = createContext(null);
 export const useMission = () => useContext(MissionContext);
 
 const SEVERITY_PENALTY = { EMERGENCY: 30, HIGH: 20, MEDIUM: 10, LOW: 4 };
-const STORAGE_KEY = 'marsmedic_crew_conditions';
-
-function loadConditions() {
-  try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}'); } catch { return {}; }
-}
-
-function withOverrides(base, conditions) {
-  const totalPenalty = Math.min(50, conditions.reduce((s, c) => s + c.penalty, 0));
-  const score = Math.max(0, Math.min(100, base.score - totalPenalty));
-  const status = score >= 85 ? 'green' : score >= 70 ? 'yellow' : 'red';
-  const statusLabel = status === 'green' ? 'Operational' : status === 'yellow' ? 'Monitor' : 'Medical Review';
-  return { ...base, score, status, statusLabel, conditions };
-}
 
 export function MissionProvider({ children }) {
   const [session, setSession] = useState(null);
-  const [crewId, setCrewId] = useState(null);
-  const [diagnosis, setDiagnosis] = useState(null);
+  const [patient, setPatient] = useState(null);
+  const [sessionLoading, setSessionLoading] = useState(true);
+  const [diagnosis, setDiagnosisState] = useState(null);
   const [completedSteps, setCompletedSteps] = useState({});
   const [earthQueue, setEarthQueue] = useState([]);
-  const [liveVitals, setLiveVitals] = useState(null);
-  const [authGate, setAuthGate] = useState(null);
-  const [crewConditions, setCrewConditions] = useState(loadConditions);
+  const [liveVitals, setLiveVitalsState] = useState(null);
+  const [events, setEvents] = useState([]);
+  const authChannel = useRef(null);
+
+  const clearSessionState = useCallback(() => {
+    setPatient(null);
+    setSession(null);
+    setEvents([]);
+    setDiagnosisState(null);
+    setCompletedSteps({});
+    setEarthQueue([]);
+    setLiveVitalsState(null);
+  }, []);
+
+  const notifyAuthChange = useCallback(() => {
+    authChannel.current?.postMessage('session-changed');
+    try { localStorage.setItem('marsmedic_auth_revision', String(Date.now())); } catch { /* ignore */ }
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    localApi('/auth/logout', { method: 'POST', body: { entries: [] } })
+      .catch(() => {})
+      .finally(() => { if (active) setSessionLoading(false); });
+    return () => { active = false; };
+  }, []);
 
   const isGuest = session?.method === 'guest';
-  const login = useCallback((method) => setSession({ method, startedAt: Date.now() }), []);
-  const logout = useCallback(() => {
-    setSession(null); setCrewId(null); setDiagnosis(null); setCompletedSteps({}); setEarthQueue([]); setLiveVitals(null);
+  const recordEvent = useCallback((type, details) => {
+    setEvents((current) => [...current, { type, details: String(details || '').slice(0, 1000), at: new Date().toISOString() }].slice(-100));
   }, []);
-  const selectCrew = useCallback((id) => setCrewId(id), []);
 
-  const effectiveCrew = useMemo(
-    () => CREW.map((c) => withOverrides(c, crewConditions[c.id] || [])),
-    [crewConditions]
-  );
-  const crew = useMemo(() => effectiveCrew.find((c) => c.id === crewId) || null, [effectiveCrew, crewId]);
+  const setPatientSession = useCallback(({ profile, startedAt }) => {
+    setPatient({
+      ...profile,
+      conditions: Array.isArray(profile?.conditions) ? profile.conditions : [],
+      medicalHistoryEntries: Array.isArray(profile?.medicalHistoryEntries) ? profile.medicalHistoryEntries : [],
+    });
+    setSession({ method: 'patient', startedAt: startedAt || new Date().toISOString() });
+    setEvents([]);
+    setDiagnosisState(null);
+    setCompletedSteps({});
+    setEarthQueue([]);
+    setLiveVitalsState(null);
+    notifyAuthChange();
+  }, [notifyAuthChange]);
+
+  const createAccount = useCallback(async (details) => {
+    const result = await localApi('/auth/register', { method: 'POST', body: details });
+    setPatientSession(result);
+  }, [setPatientSession]);
+
+  const loginWithPin = useCallback(async (username, pin) => {
+    const result = await localApi('/auth/login-pin', { method: 'POST', body: { username, pin } });
+    setPatientSession(result);
+  }, [setPatientSession]);
+
+  const loginWithPasskey = useCallback(async (username) => {
+    const options = await localApi('/passkeys/login/options', { method: 'POST', body: { username } });
+    const response = await startAuthentication({ optionsJSON: options });
+    const result = await localApi('/passkeys/login/verify', {
+      method: 'POST',
+      body: { ...response, challenge: options.challenge },
+    });
+    setPatientSession(result);
+  }, [setPatientSession]);
+
+  const registerPasskey = useCallback(async () => {
+    const options = await localApi('/passkeys/register/options', { method: 'POST', body: {} });
+    const response = await startRegistration({ optionsJSON: options });
+    await localApi('/passkeys/register/verify', {
+      method: 'POST',
+      body: { ...response, challenge: options.challenge },
+    });
+    setPatient((current) => current ? { ...current, hasPasskey: true } : current);
+  }, []);
+
+  const updateProfile = useCallback(async (details) => {
+    const result = await localApi('/profile', { method: 'PUT', body: details });
+    const updated = {
+      ...result.profile,
+      conditions: Array.isArray(result.profile?.conditions) ? result.profile.conditions : [],
+      medicalHistoryEntries: Array.isArray(result.profile?.medicalHistoryEntries) ? result.profile.medicalHistoryEntries : [],
+    };
+    setPatient(updated);
+    return updated;
+  }, []);
+
+  const changePin = useCallback((currentPin, newPin) => (
+    localApi('/profile/pin', { method: 'POST', body: { currentPin, newPin } })
+  ), []);
+
+  const loginGuest = useCallback(async () => {
+    try {
+      await localApi('/auth/logout', {
+        method: 'POST',
+        body: {
+          startedAt: session?.startedAt,
+          entries: session?.method === 'patient' ? events : [],
+        },
+      });
+    } catch { /* Guest mode remains available if the local service is unavailable. */ }
+    setPatient(null);
+    setSession({ method: 'guest', startedAt: new Date().toISOString() });
+    setEvents([]);
+    setDiagnosisState(null);
+    setCompletedSteps({});
+    setEarthQueue([]);
+    setLiveVitalsState(null);
+    notifyAuthChange();
+  }, [session, events, notifyAuthChange]);
+
+  useEffect(() => {
+    try {
+      localStorage.removeItem('marsmedic_patient_profiles');
+      localStorage.removeItem('marsmedic_crew_conditions');
+    } catch { /* ignore */ }
+  }, []);
+
+  useEffect(() => {
+    const channel = typeof BroadcastChannel === 'undefined' ? null : new BroadcastChannel('marsmedic-auth');
+    authChannel.current = channel;
+    const onChange = () => clearSessionState();
+    channel?.addEventListener('message', onChange);
+    window.addEventListener('storage', onChange);
+    return () => {
+      channel?.removeEventListener('message', onChange);
+      channel?.close();
+      window.removeEventListener('storage', onChange);
+    };
+  }, [clearSessionState]);
+
+  const logout = useCallback(async () => {
+    try {
+      if (session?.method === 'patient') {
+        await localApi('/session/end', { method: 'POST', body: { startedAt: session.startedAt, entries: events } });
+      }
+    } finally {
+      clearSessionState();
+      notifyAuthChange();
+    }
+  }, [session, events, clearSessionState, notifyAuthChange]);
+
+  const updateDiagnosis = useCallback((next) => {
+    setDiagnosisState(next);
+    if (next) recordEvent('Assessment', `${next.name || 'Assessment'} · ${next.severity || 'severity not recorded'}`);
+  }, [recordEvent]);
 
   const toggleStep = useCallback((diagnosisId, idx) => {
     setCompletedSteps((prev) => {
       const arr = prev[diagnosisId] || [];
       return { ...prev, [diagnosisId]: arr.includes(idx) ? arr.filter((i) => i !== idx) : [...arr, idx] };
     });
+    recordEvent('Treatment plan', `Updated step ${idx + 1} for ${diagnosisId}`);
+  }, [recordEvent]);
+
+  const queueEarthPacket = useCallback((packet) => {
+    setEarthQueue((current) => [...current, packet]);
+    recordEvent('Earth alert', `Queued packet: ${packet.diagnosis || 'medical summary'}`);
+  }, [recordEvent]);
+
+  const queueEmergencyPacket = useCallback((packet) => {
+    setEarthQueue((current) => [...current, packet]);
   }, []);
 
-  const queueEarthPacket = useCallback((packet) => setEarthQueue((q) => [...q, packet]), []);
-  const requestAuth = useCallback((cb, title) => setAuthGate({ cb, title }), []);
-  const clearAuth = useCallback(() => setAuthGate(null), []);
+  const setLiveVitals = useCallback((readings) => {
+    setLiveVitalsState(readings);
+    if (readings) recordEvent('Vitals', `HR ${readings.hr ?? '—'}, BP ${readings.bpSys ? `${readings.bpSys}/${readings.bpDia}` : '—'}, SpO2 ${readings.spo2 ?? '—'}%, temperature ${readings.temp ?? '—'}°C`);
+  }, [recordEvent]);
+
+  const persistConditions = useCallback(async (conditions) => {
+    if (!patient) return;
+    const updated = await updateProfile({ ...patient, conditions });
+    setPatient(updated);
+  }, [patient, updateProfile]);
 
   const applyDiagnosisToCrew = useCallback((dx) => {
-    if (!crewId || !dx) return;
-    setCrewConditions((prev) => {
-      const list = prev[crewId] || [];
-      if (list.some((c) => c.id === dx.id)) return prev;
-      const penalty = SEVERITY_PENALTY[dx.severity] ?? 5;
-      const next = { ...prev, [crewId]: [...list, { id: dx.id, name: dx.name, severity: dx.severity, penalty, date: Date.now() }] };
-      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(next)); } catch { /* ignore */ }
-      return next;
-    });
-  }, [crewId]);
+    if (!patient || !dx) return;
+    const current = patient.conditions || [];
+    if (current.some((condition) => condition.id === dx.id)) return;
+    const condition = {
+      id: dx.id,
+      name: dx.name,
+      severity: dx.severity,
+      penalty: SEVERITY_PENALTY[dx.severity] ?? 5,
+      date: Date.now(),
+    };
+    persistConditions([...current, condition]);
+  }, [patient, persistConditions]);
 
   const resolveCrewCondition = useCallback((conditionId) => {
-    if (!crewId || !conditionId) return;
-    setCrewConditions((prev) => {
-      const list = prev[crewId] || [];
-      const next = { ...prev, [crewId]: list.filter((c) => c.id !== conditionId) };
-      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(next)); } catch { /* ignore */ }
-      return next;
-    });
-  }, [crewId]);
+    if (!patient) return;
+    persistConditions((patient.conditions || []).filter((condition) => condition.id !== conditionId));
+  }, [patient, persistConditions]);
 
   const clearCrewConditions = useCallback((id) => {
-    setCrewConditions((prev) => {
-      const next = { ...prev };
-      delete next[id];
-      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(next)); } catch { /* ignore */ }
-      return next;
-    });
-  }, []);
+    if (patient?.id === id) persistConditions([]);
+  }, [patient, persistConditions]);
+
+  const effectiveCrew = useMemo(() => patient ? [patient] : [], [patient]);
+  const crew = patient;
 
   return (
-    <MissionContext.Provider
-      value={{ session, isGuest, login, logout, crewId, selectCrew, crew, effectiveCrew, diagnosis, setDiagnosis, completedSteps, toggleStep, earthQueue, queueEarthPacket, liveVitals, setLiveVitals, authGate, requestAuth, clearAuth, crewConditions, applyDiagnosisToCrew, resolveCrewCondition, clearCrewConditions }}
-    >
+    <MissionContext.Provider value={{
+      session,
+      sessionLoading,
+      isGuest,
+      patient,
+      crew,
+      crewId: patient?.id || null,
+      effectiveCrew,
+      createAccount,
+      loginWithPin,
+      loginWithPasskey,
+      loginGuest,
+      registerPasskey,
+      updateProfile,
+      changePin,
+      logout,
+      diagnosis,
+      setDiagnosis: updateDiagnosis,
+      completedSteps,
+      toggleStep,
+      earthQueue,
+      queueEarthPacket,
+      queueEmergencyPacket,
+      liveVitals,
+      setLiveVitals,
+      recordEvent,
+      applyDiagnosisToCrew,
+      resolveCrewCondition,
+      clearCrewConditions,
+    }}>
       {children}
     </MissionContext.Provider>
   );

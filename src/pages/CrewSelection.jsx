@@ -1,45 +1,128 @@
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMission } from '@/lib/MissionContext';
-import { CREW } from '@/lib/missionData';
-import { Rocket, LogOut } from 'lucide-react';
+import PatientHealthFields, { EMPTY_HEALTH_PROFILE } from '@/components/PatientHealthFields';
+import PageHeader from '@/components/PageHeader';
+import { Fingerprint, KeyRound, Loader2, Save } from 'lucide-react';
+
+const inputClass = 'w-full max-w-xs rounded-md border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100 outline-none focus:border-blue-500';
 
 export default function CrewSelection() {
-  const { selectCrew, crewId, requestAuth, logout } = useMission();
+  const { patient, updateProfile, changePin, registerPasskey, isGuest } = useMission();
   const navigate = useNavigate();
+  const [profile, setProfile] = useState({ ...EMPTY_HEALTH_PROFILE });
+  const [currentPin, setCurrentPin] = useState('');
+  const [newPin, setNewPin] = useState('');
+  const [confirmPin, setConfirmPin] = useState('');
+  const [message, setMessage] = useState('');
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
 
-  const choose = (id) => {
-    if (crewId && crewId !== id) {
-      requestAuth(() => { selectCrew(id); navigate('/dashboard'); });
-    } else {
-      selectCrew(id);
-      navigate('/dashboard');
+  useEffect(() => {
+    if (!patient || isGuest) {
+      navigate(isGuest ? '/dashboard' : '/', { replace: true });
+      return;
+    }
+    setProfile({
+      name: patient.name,
+      ...Object.fromEntries(Object.keys(EMPTY_HEALTH_PROFILE).map((key) => [key, patient[key] || ''])),
+    });
+  }, [patient, isGuest, navigate]);
+
+  const saveProfile = async (event) => {
+    event.preventDefault();
+    setBusy(true);
+    setMessage('');
+    setError('');
+    try {
+      await updateProfile({ ...profile, name: profile.name });
+      setMessage('Health profile updated.');
+    } catch (requestError) {
+      setError(requestError.message);
+    } finally {
+      setBusy(false);
     }
   };
 
-  const exitToLogin = () => requestAuth(() => { logout(); navigate('/'); });
+  const savePin = async (event) => {
+    event.preventDefault();
+    setMessage('');
+    setError('');
+    if (!/^\d{4}$/.test(newPin)) return setError('New PIN must contain exactly four digits.');
+    if (newPin !== confirmPin) return setError('PIN confirmation does not match.');
+    setBusy(true);
+    try {
+      await changePin(currentPin, newPin);
+      setCurrentPin('');
+      setNewPin('');
+      setConfirmPin('');
+      setMessage('PIN changed.');
+    } catch (requestError) {
+      setError(requestError.message);
+    } finally {
+      setBusy(false);
+    }
+  };
 
-  const dotClass = (s) => (s === 'green' ? 'bg-emerald-500' : s === 'yellow' ? 'bg-amber-500' : 'bg-red-500');
-  const tone = (s) => (s === 'green' ? 'text-emerald-400' : s === 'yellow' ? 'text-amber-400' : 'text-red-400');
+  const addPasskey = async () => {
+    setBusy(true);
+    setMessage('');
+    setError('');
+    try {
+      await registerPasskey();
+      setMessage('Device passkey added.');
+    } catch (requestError) {
+      setError(requestError.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  if (!patient || isGuest) return null;
 
   return (
-    <div className="relative flex min-h-screen flex-col items-center justify-center bg-slate-950 px-4 py-10">
-      <button onClick={exitToLogin} className="absolute right-4 top-4 inline-flex items-center gap-1.5 rounded-md border border-slate-700 bg-slate-800 px-3 py-1.5 text-xs font-medium text-slate-300 hover:bg-slate-700">
-        <LogOut className="h-3.5 w-3.5" /> Exit to Login
-      </button>
-      <div className="mb-2 flex items-center gap-2 text-slate-400"><Rocket className="h-4 w-4" /><span className="text-xs font-medium">Crew Manifest</span></div>
-      <h1 className="mb-8 text-center text-2xl font-bold text-slate-100">Select Crew Member</h1>
-      <div className="grid w-full max-w-4xl grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {CREW.map((c) => (
-          <button key={c.id} onClick={() => choose(c.id)} className="panel panel-glow p-6 text-center transition hover:border-blue-500">
-            <div className="mx-auto mb-3 flex h-20 w-20 items-center justify-center rounded-full bg-slate-800 text-xl font-bold text-slate-300">{c.initials}</div>
-            <div className="text-lg font-bold text-slate-100">{c.name}</div>
-            <div className="mb-3 text-xs text-slate-400">{c.role}</div>
-            <span className={`inline-block h-2.5 w-2.5 rounded-full ${dotClass(c.status)}`} />
-            <div className={`mt-1 font-mono text-xl font-bold ${tone(c.status)}`}>{c.score}/100</div>
-          </button>
-        ))}
+    <div>
+      <PageHeader title="My Patient Profile" subtitle={patient.username} icon={KeyRound} />
+      <div className="grid gap-4 lg:grid-cols-[1.5fr_1fr]">
+        <form onSubmit={saveProfile} className="panel panel-glow space-y-4 p-5">
+          <h2 className="text-base font-semibold text-slate-100">Health information</h2>
+          <label className="block space-y-1.5 text-sm text-slate-300">Full name
+            <input value={profile.name || ''} onChange={(event) => setProfile((current) => ({ ...current, name: event.target.value }))} required maxLength={100} className={inputClass} autoComplete="name" />
+          </label>
+          <PatientHealthFields value={profile} onChange={(key, value) => setProfile((current) => ({ ...current, [key]: value }))} />
+          <button type="submit" disabled={busy} className="btn-mission"><Save className="h-4 w-4" /> Save changes</button>
+        </form>
+
+        <div className="space-y-4">
+          <form onSubmit={savePin} className="panel p-5">
+            <h2 className="mb-4 text-base font-semibold text-slate-100">Change PIN</h2>
+            <div className="space-y-3">
+              <label className="block space-y-1.5 text-sm text-slate-300">Current PIN
+                <input type="password" value={currentPin} onChange={(event) => setCurrentPin(event.target.value.replace(/\D/g, '').slice(0, 4))} inputMode="numeric" pattern="[0-9]{4}" maxLength={4} required className={inputClass} autoComplete="current-password" />
+              </label>
+              <label className="block space-y-1.5 text-sm text-slate-300">New four-digit PIN
+                <input type="password" value={newPin} onChange={(event) => setNewPin(event.target.value.replace(/\D/g, '').slice(0, 4))} inputMode="numeric" pattern="[0-9]{4}" maxLength={4} required className={inputClass} autoComplete="new-password" />
+              </label>
+              <label className="block space-y-1.5 text-sm text-slate-300">Confirm new PIN
+                <input type="password" value={confirmPin} onChange={(event) => setConfirmPin(event.target.value.replace(/\D/g, '').slice(0, 4))} inputMode="numeric" pattern="[0-9]{4}" maxLength={4} required className={inputClass} autoComplete="new-password" />
+              </label>
+            </div>
+            <button type="submit" disabled={busy} className="btn-mission mt-4">Change PIN</button>
+          </form>
+
+          <div className="panel p-5">
+            <h2 className="mb-2 text-base font-semibold text-slate-100">Device passkey</h2>
+            <p className="mb-4 text-xs text-slate-400">Use this device’s passkey verification (biometric or device PIN) to sign in without your account PIN.</p>
+            {patient.hasPasskey && <p className="mb-3 text-xs text-emerald-400">A passkey is registered for this account.</p>}
+            <button type="button" onClick={addPasskey} disabled={busy} className="btn-mission">
+              {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Fingerprint className="h-4 w-4" />}
+              Add device passkey
+            </button>
+          </div>
+        </div>
       </div>
-      {crewId && <p className="mt-6 text-center text-xs text-slate-500">Switching crew requires fingerprint re-authentication.</p>}
+      {message && <p role="status" className="mt-4 text-sm text-emerald-400">{message}</p>}
+      {error && <p role="alert" className="mt-4 text-sm text-red-400">{error}</p>}
     </div>
   );
 }

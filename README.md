@@ -1,67 +1,31 @@
-# Base44 Project
+# MarsMedic AI
 
-Use this repository to run and edit the app locally, then publish changes back through Base44.
+MarsMedic AI is a standalone installable web app with a same-computer local service. It works without internet access once dependencies are installed. It does not require Base44, a hosted backend, external fonts, or email. Patients create a unique username and four-digit PIN, then can optionally add a device passkey. Patient accounts and records are stored in a local SQLite database; health details are encrypted at rest, and each account only receives its own profile after PIN or passkey authentication.
 
-Any change pushed to the repo will also be reflected in the Base44 Builder.
-
-## Prerequisites
-
-1. Clone the repository using the project's Git URL.
-2. Navigate to the project directory.
-3. Install dependencies: `npm install`.
-4. Install the Base44 CLI: `npm install -g base44@latest`.
-5. Install [Deno](https://docs.deno.com/runtime/getting_started/installation/) â the local Base44 backend runs on it.
-
-Run `base44 --help` (or see the [CLI reference](https://docs.base44.com/developers/references/cli/commands/introduction)) for the full command surface.
+The local service must be running whenever the app is used. Use Node.js 24 or newer. The database is stored in `data/marsmedic.sqlite`; its encryption key is stored separately at `~/.marsmedic-ai/health-data.key`. Back up both securely together. Losing the key makes encrypted health records unrecoverable. This local prototype has no remote backup or account recovery service and is not a certified clinical records system.
 
 ## Run Locally
 
-Three commands, from the project root:
-
 ```bash
-base44 login   # one-time per machine
-base44 link    # one-time per clone
-base44 dev     # local backend + frontend together
+npm install
+npm run dev
 ```
 
-Open the frontend URL that `base44 dev` prints (typically `http://localhost:5173`).
+This starts the SQLite/API service on `127.0.0.1:8787` and the Vite app, usually at `http://localhost:5173`.
 
-Notes:
-
-- **Every fresh clone needs `base44 link`.** It writes `base44/.app.jsonc` (the app-id pointer), which is deliberately gitignored. Your app id is in the Builder URL (`app.base44.com/apps/<id>/...`); `base44 link --help` shows the non-interactive flags.
-- **`base44 dev` runs the frontend for you** (via `site.serveCommand` in this repo's `base44/config.jsonc`) â never run `npm run dev` yourself: alone it serves a UI with no backend behind it (`[base44] Proxy not enabled`, every `/api` call fails), and alongside `base44 dev` the second Vite silently takes the next port and you end up looking at the wrong one.
-- **The app must be published at least once for the UI to load under `base44 dev`.** The frontend boots by fetching app settings from the hosted app; before the first publish that fails and every page redirects to login. The local API works regardless.
-- Entities, functions, and auth run locally â entity data is **in-memory only**, wiped when `base44 dev` restarts. Everything else (Core integrations, OAuth login) is forwarded to your deployed app. Full breakdown: [Local development overview](https://docs.base44.com/developers/backend/overview/local-dev/local-development-overview).
-
-## Frontend Only, Hosted Backend
-
-To work on just the frontend against your app's live hosted backend:
+For production-style offline use, build and start the combined local app server:
 
 ```bash
-base44 dev --remote
+npm run build
+npm start
 ```
 
-â ï¸ In this mode writes go to your app's **production data** â plain `base44 dev` keeps everything local.
+Open `http://localhost:8787` once to cache the PWA assets. The service worker caches the app shell; the local service and database remain necessary for account sign-in and records, but do not need internet access.
 
-## Publish Your Changes
-
-After pushing your changes to git, open the Base44 dashboard and publish the app:
+## Checks
 
 ```bash
-base44 dashboard open
+npm run lint
+npm run build
+npm run test:api
 ```
-
-This repo syncs to Base44 through git, so publish from the dashboard rather than `base44 deploy` â a CLI deploy ships your local tree directly, bypassing the sync, and the deployed state silently diverges from the repo.
-
-## Docs & Support
-
-GitHub integration: [https://docs.base44.com/developers/app-code/local-development/github](https://docs.base44.com/developers/app-code/local-development/github)
-
-Local development: [https://docs.base44.com/developers/backend/overview/local-dev/local-development-overview](https://docs.base44.com/developers/backend/overview/local-dev/local-development-overview)
-
-Support: [https://app.base44.com/support](https://app.base44.com/support)
-
-
----
-
-[![Restore to base44](https://img.shields.io/badge/Restore%20to-BASE44-orange?style=for-the-badge&logo=rocket)](https://app.base44.com/apps)

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useMission } from '@/lib/MissionContext';
 import PageHeader from '@/components/PageHeader';
 import { Activity, RotateCcw } from 'lucide-react';
 
@@ -13,32 +14,52 @@ const FLOW = {
   pulse_yes: { type: 'a', text: 'Pulse present. Monitor vitals. Keep patient warm. Record ECG. Prepare Earth Alert Packet for transmission.', opts: [{ l: 'Generate Earth Alert', n: 'earth' }, { l: 'Restart Protocol', n: 'start' }] },
   pulse_no: { type: 'a', text: 'No pulse. Begin CPR: 30 chest compressions + 2 rescue breaths. Rate 100–120/min, depth 5–6cm. Continue until pulse returns or Mission Control advises.', opts: [{ l: 'Pulse Returned', n: 'pulse_yes' }, { l: 'Continue CPR', n: 'pulse_no' }, { l: 'Restart Protocol', n: 'start' }] },
   earth: { type: 'a', text: 'Routing to Earth Alert Packet generator…', opts: [{ l: 'Open Earth Alert', n: 'goto_earth' }] },
+  contacted: { type: 'a', text: 'The emergency packet has been queued locally. It will not transmit until a communications link is available.', opts: [{ l: 'Restart Protocol', n: 'start' }] },
 };
 
-export default function MedicalCopilot() {
+export default function MedicalCopilot({ embedded = false, emergency = false, onContactEarth, contactQueued = false }) {
   const [node, setNode] = useState('start');
+  const [responses, setResponses] = useState([]);
   const navigate = useNavigate();
+  const { queueEmergencyPacket } = useMission();
   const cur = FLOW[node];
-  const go = (n) => { if (n === 'goto_earth') { navigate('/earth-alert'); return; } setNode(n); };
+  const go = (option) => {
+    if (option.n === 'goto_earth' || (emergency && option.n === 'earth')) {
+      if (emergency) {
+        const packet = { protocol: responses, protocolStep: cur.text };
+        if (onContactEarth) onContactEarth(packet);
+        else queueEmergencyPacket({ patient: 'Emergency patient', diagnosis: 'Copilot emergency request', severity: 'UNASSESSED', ...packet, createdAt: new Date().toISOString() });
+        setNode('contacted');
+        return;
+      }
+      navigate('/earth-alert');
+      return;
+    }
+    if (option.n === 'start') setResponses([]);
+    else setResponses((current) => [...current, { prompt: cur.text, response: option.l }]);
+    setNode(option.n);
+  };
   const isQ = cur.type === 'q';
 
   return (
     <div>
-      <PageHeader title="Medical Copilot" subtitle="Emergency step-by-step assistant" icon={Activity} />
+      {!embedded && <PageHeader title="Medical Copilot" subtitle="Emergency step-by-step assistant" icon={Activity} />}
       <div className="panel panel-glow p-6">
-        <div className="mb-4 flex items-center gap-2 text-red-400"><Activity className="h-5 w-5" /><span className="text-xs font-semibold uppercase tracking-wide">Emergency Protocol Active</span></div>
+        <div className="mb-4 flex items-center gap-2 text-red-400"><Activity className="h-5 w-5" /><span className="text-xs font-semibold uppercase tracking-wide">{embedded ? 'Medical Copilot · Emergency Protocol' : 'Emergency Protocol Active'}</span></div>
         <div className={`rounded-lg border p-6 ${isQ ? 'border-blue-800 bg-blue-950/40' : 'border-amber-800 bg-amber-950/40'}`}>
           <div className="text-xl font-semibold text-slate-100">{cur.text}</div>
         </div>
         <div className="mt-6 grid gap-3 sm:grid-cols-2">
           {cur.opts.map((o) => (
-            <button key={o.l} onClick={() => go(o.n)} className="btn-mission py-5 text-base">{o.l}</button>
+            <button key={o.l} onClick={() => go(o)} disabled={contactQueued && (o.n === 'earth' || o.n === 'goto_earth')} className="btn-mission py-5 text-base disabled:opacity-50">
+              {emergency && o.n === 'earth' ? 'Contact Earth for Emergency' : o.l}
+            </button>
           ))}
         </div>
       </div>
-      <div className="mt-4 flex justify-center">
-        <button onClick={() => setNode('start')} className="inline-flex items-center gap-1 text-xs text-blue-400 hover:underline"><RotateCcw className="h-3.5 w-3.5" /> Restart Protocol</button>
-      </div>
+      {!embedded && <div className="mt-4 flex justify-center">
+        <button onClick={() => { setResponses([]); setNode('start'); }} className="inline-flex items-center gap-1 text-xs text-blue-400 hover:underline"><RotateCcw className="h-3.5 w-3.5" /> Restart Protocol</button>
+      </div>}
     </div>
   );
 }

@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from 'react';
-import { base44 } from '@/api/base44Client';
 import { useMission } from '@/lib/MissionContext';
 import PageHeader from '@/components/PageHeader';
 import SleepPanel from '@/components/wellness/SleepPanel';
@@ -10,7 +9,7 @@ import { todayISO } from '@/lib/wellnessData';
 import { Moon, Loader2 } from 'lucide-react';
 
 export default function Wellness() {
-  const { crew, isGuest } = useMission();
+  const { crew, recordEvent } = useMission();
   const [sleepLogs, setSleepLogs] = useState([]);
   const [mealLogs, setMealLogs] = useState([]);
   const [insights, setInsights] = useState([]);
@@ -18,38 +17,15 @@ export default function Wellness() {
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    if (isGuest) {
-      setSleepLogs([]);
-      setMealLogs([]);
-      setInsights([]);
-      setLoading(false);
-      return;
-    }
-    const query = crew ? { crew_id: crew.id } : {};
-    setLoading(true);
-    Promise.all([
-      base44.entities.SleepLog.filter(query, { sort: '-created_date', limit: 30 }),
-      base44.entities.MealLog.filter(query, { sort: '-created_date', limit: 50 }),
-      base44.entities.WellnessInsight.filter(query, { sort: '-created_date', limit: 10 }),
-    ])
-      .then(([sleep, meals, saved]) => {
-        setSleepLogs(sleep.items);
-        setMealLogs(meals.items);
-        setInsights(saved.items);
-      })
-      .finally(() => setLoading(false));
-  }, [crew, isGuest]);
+    setLoading(false);
+  }, []);
 
   const logSleep = async (entry) => {
     const payload = { ...entry, crew_id: crew?.id, crew_name: crew?.name };
+    recordEvent('Sleep', JSON.stringify(entry));
     setBusy(true);
     try {
-      if (isGuest) {
-        setSleepLogs((prev) => [{ id: `g-${Date.now()}`, ...payload, created_date: new Date().toISOString() }, ...prev]);
-      } else {
-        const rec = await base44.entities.SleepLog.create(payload);
-        setSleepLogs((prev) => [rec, ...prev]);
-      }
+      setSleepLogs((prev) => [{ id: `g-${Date.now()}`, ...payload, created_date: new Date().toISOString() }, ...prev]);
     } finally {
       setBusy(false);
     }
@@ -57,26 +33,20 @@ export default function Wellness() {
 
   const logMeal = async (entry) => {
     const payload = { ...entry, crew_id: crew?.id, crew_name: crew?.name };
+    recordEvent('Nutrition', JSON.stringify(entry));
     setBusy(true);
     try {
-      if (isGuest) {
-        setMealLogs((prev) => [{ id: `g-${Date.now()}`, ...payload, created_date: new Date().toISOString() }, ...prev]);
-      } else {
-        const rec = await base44.entities.MealLog.create(payload);
-        setMealLogs((prev) => [rec, ...prev]);
-      }
+      setMealLogs((prev) => [{ id: `g-${Date.now()}`, ...payload, created_date: new Date().toISOString() }, ...prev]);
     } finally {
       setBusy(false);
     }
   };
 
   const removeSleep = async (id) => {
-    if (!isGuest) await base44.entities.SleepLog.delete(id);
     setSleepLogs((prev) => prev.filter((l) => l.id !== id));
   };
 
   const removeMeal = async (id) => {
-    if (!isGuest) await base44.entities.MealLog.delete(id);
     setMealLogs((prev) => prev.filter((l) => l.id !== id));
   };
 
@@ -84,21 +54,16 @@ export default function Wellness() {
 
   const saveInsight = async (payload) => {
     const record = { ...payload, crew_id: crew?.id, crew_name: crew?.name, generated_on: todayISO() };
+    recordEvent('Wellness insight', JSON.stringify(payload));
     setBusy(true);
     try {
-      if (isGuest) {
-        setInsights((prev) => [{ id: `g-${Date.now()}`, ...record, created_date: new Date().toISOString() }, ...prev]);
-      } else {
-        const rec = await base44.entities.WellnessInsight.create(record);
-        setInsights((prev) => [rec, ...prev]);
-      }
+      setInsights((prev) => [{ id: `g-${Date.now()}`, ...record, created_date: new Date().toISOString() }, ...prev]);
     } finally {
       setBusy(false);
     }
   };
 
   const removeInsight = async (id) => {
-    if (!isGuest) await base44.entities.WellnessInsight.delete(id);
     setInsights((prev) => prev.filter((i) => i.id !== id));
   };
 

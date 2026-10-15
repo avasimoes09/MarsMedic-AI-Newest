@@ -1,4 +1,5 @@
 import { Activity, BluetoothConnected, Save, Stethoscope } from 'lucide-react';
+import { useEffect } from 'react';
 import { useVitalDevice } from '@/hooks/useVitalDevice';
 import { useMission } from '@/lib/MissionContext';
 import { useNavigate } from 'react-router-dom';
@@ -36,12 +37,16 @@ function Readout({ kind, value }) {
   );
 }
 
-export default function VitalsTelemetry({ compact = false, showAttach = true }) {
+export default function VitalsTelemetry({ compact = false, showAttach = true, onReadingsChange }) {
   const dev = useVitalDevice();
   const { status, deviceName, readings, waveform, supported, connect, disconnect, simulate } = dev;
   const { setLiveVitals } = useMission();
   const navigate = useNavigate();
   const connected = status === 'connected';
+
+  useEffect(() => {
+    onReadingsChange?.(connected ? { ...readings, source: deviceName, at: Date.now() } : null);
+  }, [connected, deviceName, readings, onReadingsChange]);
 
   const attach = (dest) => {
     setLiveVitals({ ...readings, source: deviceName, at: Date.now() });

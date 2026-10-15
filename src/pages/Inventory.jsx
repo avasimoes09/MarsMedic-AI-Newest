@@ -1,7 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
 import PageHeader from '@/components/PageHeader';
-import { base44 } from '@/api/base44Client';
-import { useMission } from '@/lib/MissionContext';
 import { INVENTORY as SEED } from '@/lib/missionData';
 import { Boxes, AlertTriangle, Plus, Trash2, Check, X, Pencil } from 'lucide-react';
 
@@ -13,23 +11,14 @@ const seedItems = () => SEED.map((s, i) => ({ id: `g_${i}`, name: s.name, quanti
 const inputCls = 'w-full rounded-md border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 focus:border-blue-500 focus:outline-none';
 
 export default function Inventory() {
-  const { isGuest } = useMission();
   const [items, setItems] = useState(null);
   const [editing, setEditing] = useState(null);
   const [draft, setDraft] = useState(null);
   const [saving, setSaving] = useState(false);
 
   const load = useCallback(async () => {
-    if (isGuest) { setItems(seedItems()); return; }
-    let res = await base44.entities.Inventory.filter({}, { sort: 'name', limit: 100 });
-    if (res.items.length === 0) {
-      await base44.entities.Inventory.bulkCreate(
-        SEED.map((s) => ({ name: s.name, quantity: s.quantity, unit: s.unit, description: s.description, usage: s.usage, low_threshold: defaultThreshold(s.unit) }))
-      );
-      res = await base44.entities.Inventory.filter({}, { sort: 'name', limit: 100 });
-    }
-    setItems(res.items);
-  }, [isGuest]);
+    setItems(seedItems());
+  }, []);
 
   useEffect(() => { load(); }, [load]);
 
@@ -42,13 +31,7 @@ export default function Inventory() {
     setSaving(true);
     try {
       const payload = { ...draft, low_threshold: draft.low_threshold ?? defaultThreshold(draft.unit) };
-      if (isGuest) {
-        setItems((prev) => editing === 'new' ? [...prev, { ...payload, id: `g_${Date.now()}` }] : prev.map((it) => it.id === editing ? { ...it, ...payload } : it));
-      } else {
-        if (editing === 'new') await base44.entities.Inventory.create(payload);
-        else await base44.entities.Inventory.update(editing, payload);
-        await load();
-      }
+      setItems((prev) => editing === 'new' ? [...prev, { ...payload, id: `g_${Date.now()}` }] : prev.map((it) => it.id === editing ? { ...it, ...payload } : it));
       cancel();
     } finally {
       setSaving(false);
@@ -56,15 +39,14 @@ export default function Inventory() {
   };
 
   const remove = async (id) => {
-    if (isGuest) { setItems((prev) => prev.filter((it) => it.id !== id)); return; }
-    await base44.entities.Inventory.delete(id); await load();
+    setItems((prev) => prev.filter((it) => it.id !== id));
   };
 
   const set = (k, v) => setDraft((d) => ({ ...d, [k]: v }));
 
   return (
     <div>
-      <PageHeader title="Medical Inventory" subtitle={isGuest ? 'Guest session · not saved to crew records' : 'Editable · synced across crew'} icon={Boxes} />
+      <PageHeader title="Medical Inventory" subtitle="Local session · not synced to a server" icon={Boxes} />
       <div className="mb-4 flex justify-end">
         <button onClick={startNew} className="btn-mission"><Plus className="h-4 w-4" /> Add Item</button>
       </div>

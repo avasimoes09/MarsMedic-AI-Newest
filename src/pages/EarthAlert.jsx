@@ -13,7 +13,7 @@ function Field({ label, value }) {
 }
 
 export default function EarthAlert() {
-  const { crew, diagnosis, earthQueue, queueEarthPacket } = useMission();
+  const { crew, diagnosis, earthQueue, queueEarthPacket, liveVitals } = useMission();
   const [queued, setQueued] = useState(false);
 
   if (!crew) {
@@ -23,7 +23,7 @@ export default function EarthAlert() {
         <div className="panel panel-glow p-8 text-center">
           <Radio className="mx-auto mb-3 h-10 w-10 text-amber-400" />
           <div className="text-sm font-semibold text-slate-100">No crew member selected</div>
-          <p className="mx-auto mt-2 max-w-sm text-xs text-slate-400">Guest mode can't generate an Earth Alert packet without a crew member. Exit guest mode and select a crew member to use this tool.</p>
+          <p className="mx-auto mt-2 max-w-sm text-xs text-slate-400">Guest mode can't generate an Earth Alert packet without a patient. Select a patient profile to use this tool.</p>
         </div>
       </div>
     );
@@ -31,15 +31,28 @@ export default function EarthAlert() {
 
   const packet = {
     patient: crew.name,
-    role: crew.role,
+    role: 'Patient',
     symptoms: diagnosis?.evidence || ['See assessment notes'],
     diagnosis: diagnosis?.name || 'No diagnosis on file',
-    confidence: diagnosis?.confidence ?? '—',
+    confidence: diagnosis?.confidence,
     severity: diagnosis?.severity || 'ROUTINE',
-    vitals: crew.vitals,
+    vitals: {
+      hr: liveVitals?.hr ?? crew.heartRate,
+      bp: liveVitals?.bpSys ? `${liveVitals.bpSys}/${liveVitals.bpDia}` : crew.bloodPressure,
+      temp: liveVitals?.temp ?? crew.temperature,
+      spo2: liveVitals?.spo2 ?? crew.oxygenSaturation,
+      rr: liveVitals?.respiratoryRate ?? crew.respiratoryRate,
+    },
     treatments: diagnosis?.treatment || [],
-    history: crew.history,
+    history: crew.medicalHistory ? [crew.medicalHistory] : [],
   };
+  const vitalsText = [
+    `HR ${packet.vitals.hr || '—'}`,
+    `BP ${packet.vitals.bp || '—'}`,
+    `T ${packet.vitals.temp ? `${packet.vitals.temp}°C` : '—'}`,
+    `SpO₂ ${packet.vitals.spo2 ? `${packet.vitals.spo2}%` : '—'}`,
+    `RR ${packet.vitals.rr || '—'}`,
+  ].join(' · ');
 
   const queue = () => { queueEarthPacket({ ...packet, ts: new Date().toISOString() }); setQueued(true); };
 
@@ -49,15 +62,17 @@ export default function EarthAlert() {
       <div className="panel panel-glow p-6">
         <div className="mb-4 flex items-center justify-between border-b border-slate-800 pb-3">
           <div>
-            <div className="text-xs font-medium text-slate-400">Priority Medical · Mission Day 042</div>
+            <div className="text-xs font-medium text-slate-400">Patient health summary</div>
             <div className="text-xl font-bold text-slate-100">{crew.name}</div>
           </div>
           <span className="chip border-red-800 bg-red-950/40 text-red-300"><Radio className="h-3.5 w-3.5" /> {packet.severity}</span>
         </div>
         <div className="grid gap-4 md:grid-cols-2">
           <Field label="Patient" value={`${packet.patient} · ${packet.role}`} />
-          <Field label="Diagnosis" value={`${packet.diagnosis} (${packet.confidence}% confidence)`} />
-          <Field label="Vitals" value={`HR ${packet.vitals.hr} · BP ${packet.vitals.bp} · T ${packet.vitals.temp}°C · SpO₂ ${packet.vitals.spo2}% · RR ${packet.vitals.rr}`} />
+          <Field label="Diagnosis" value={packet.confidence == null ? packet.diagnosis : `${packet.diagnosis} (${packet.confidence}% confidence)`} />
+          <Field label="Vitals" value={vitalsText} />
+          <Field label="Allergies" value={crew.allergies || 'Not recorded'} />
+          <Field label="Current medications" value={crew.medications || 'Not recorded'} />
           <Field label="Symptoms / Evidence" value={packet.symptoms.join(', ')} />
         </div>
         <div className="mt-4">
@@ -68,9 +83,12 @@ export default function EarthAlert() {
         </div>
         <div className="mt-4">
           <div className="mb-1 text-xs font-medium text-slate-400">Medical History</div>
-          <ul className="text-sm text-slate-300">{packet.history.map((h, i) => <li key={i}>· {h}</li>)}</ul>
+          {packet.history.length ? (
+            <ul className="text-sm text-slate-300">{packet.history.map((h, i) => <li key={i}>· {h}</li>)}</ul>
+          ) : (
+            <div className="text-sm text-slate-400">No medical history recorded.</div>
+          )}
         </div>
-        <div className="mt-4 text-xs text-slate-500">ECG: sinus rhythm · Images: crew medical scan attached</div>
       </div>
       <button onClick={queue} disabled={queued} className="btn-mission mt-4 w-full text-amber-300 hover:bg-amber-950/40 hover:border-amber-700 disabled:opacity-50">
         {queued ? <><Check className="h-5 w-5" /> Queued For Earth Transmission</> : <><Send className="h-5 w-5" /> Queue For Earth Transmission</>}

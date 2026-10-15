@@ -4,19 +4,29 @@ import { useMission } from '@/lib/MissionContext';
 import PageHeader from '@/components/PageHeader';
 import { BODY_SYSTEMS, SYMPTOMS } from '@/lib/missionData';
 import { runDiagnosis } from '@/lib/diagnosisEngine';
+import { interpretVitals } from '@/lib/vitalGuidance';
 import { getFollowupsForSymptoms } from '@/lib/followupQuestions';
-import { Stethoscope, ChevronRight, Check, X, AlertTriangle, Sparkles, ClipboardList, Radio } from 'lucide-react';
+import VitalsTelemetry from '@/components/VitalsTelemetry';
+import MedicalCopilot from '@/pages/MedicalCopilot';
+import { Stethoscope, ChevronRight, Check, X, AlertTriangle, Sparkles, ClipboardList, Radio, Send } from 'lucide-react';
 
-export default function SymptomAssessment() {
+export default function SymptomAssessment({ emergency = false }) {
   const { state } = useLocation();
   const navigate = useNavigate();
-  const { setDiagnosis, liveVitals, applyDiagnosisToCrew } = useMission();
+  const { setDiagnosis, liveVitals: patientVitals, applyDiagnosisToCrew, queueEmergencyPacket } = useMission();
+  const [externalVitals, setExternalVitals] = useState(null);
+  const liveVitals = emergency ? externalVitals : patientVitals;
   const [systems, setSystems] = useState(state?.system ? [state.system] : []);
   const [selected, setSelected] = useState([]);
   const [followups, setFollowups] = useState({});
   const [result, setResult] = useState(null);
+  const [emergencyContactQueued, setEmergencyContactQueued] = useState(false);
 
   const followupQuestions = useMemo(() => getFollowupsForSymptoms(selected), [selected]);
+  const vitalGuidance = useMemo(
+    () => emergency ? interpretVitals(externalVitals, selected) : [],
+    [emergency, externalVitals, selected],
+  );
 
   const SYMPTOM_LABELS = {};
   Object.values(SYMPTOMS).forEach((a) => a.forEach((s) => { SYMPTOM_LABELS[s.id] = s.label; }));
@@ -34,18 +44,81 @@ export default function SymptomAssessment() {
   const diagnose = () => {
     const res = runDiagnosis(selected, followups);
     setResult(res);
-    if (res.results[0]) applyDiagnosisToCrew(res.results[0]);
+    if (!emergency && res.results[0]) applyDiagnosisToCrew(res.results[0]);
   };
-  const reset = () => { setSystems([]); setSelected([]); setFollowups({}); setResult(null); };
+  const reset = () => { setSystems([]); setSelected([]); setFollowups({}); setResult(null); setEmergencyContactQueued(false); };
   const startTreatment = (dx) => { setDiagnosis(dx); navigate('/treatment'); };
   const toEarth = (dx) => { setDiagnosis(dx); navigate('/earth-alert'); };
+  const contactEarth = () => {
+    const diagnosisResult = result?.results[0];
+    queueEmergencyPacket({
+      patient: 'Emergency patient',
+      symptoms: selected.map((id) => SYMPTOM_LABELS[id] || id),
+      diagnosis: diagnosisResult?.name || 'Emergency assistance requested',
+      severity: diagnosisResult?.severity || 'UNASSESSED',
+      confidence: diagnosisResult?.confidence ?? null,
+      vitals: externalVitals,
+      createdAt: new Date().toISOString(),
+    });
+    setEmergencyContactQueued(true);
+  };
+  const queueCopilotEarthContact = (copilot) => {
+    const diagnosisResult = result?.results[0];
+    queueEmergencyPacket({
+      patient: 'Emergency patient',
+      symptoms: selected.map((id) => SYMPTOM_LABELS[id] || id),
+      diagnosis: diagnosisResult?.name || 'Copilot emergency request',
+      severity: diagnosisResult?.severity || 'UNASSESSED',
+      confidence: diagnosisResult?.confidence ?? null,
+      vitals: externalVitals,
+      ...copilot,
+      createdAt: new Date().toISOString(),
+    });
+    setEmergencyContactQueued(true);
+  };
+  const emergencyContact = (
+    <div role="alert" className="panel mb-4 border-red-700 bg-red-950/40 p-4 text-sm text-red-100">
+      <p>Prepare an emergency packet for Earth. If no communication link is available, it will remain queued locally.</p>
+      <button onClick={contactEarth} disabled={emergencyContactQueued} className="btn-mission mt-3 border-red-700 bg-red-900/60 text-red-100 hover:bg-red-800/70 disabled:opacity-60">
+        <Send className="h-4 w-4" /> {emergencyContactQueued ? 'Emergency packet queued locally' : 'Contact Earth for Emergency'}
+      </button>
+    </div>
+  );
+  const emergencyVitalsSummary = externalVitals && (
+    <div className="panel mb-4 p-4">
+      <div className="mb-3 text-sm font-semibold text-slate-100">Vital-sign context</div>
+      <div className="mb-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+        <div className="rounded-md border border-slate-800 bg-slate-900 p-3"><div className="text-xs text-slate-400">Heart rate</div><div className="font-mono text-lg text-slate-100">{externalVitals.hr ?? '—'} bpm</div></div>
+        <div className="rounded-md border border-slate-800 bg-slate-900 p-3"><div className="text-xs text-slate-400">Oxygen saturation</div><div className="font-mono text-lg text-slate-100">{externalVitals.spo2 ?? '—'}%</div></div>
+        <div className="rounded-md border border-slate-800 bg-slate-900 p-3"><div className="text-xs text-slate-400">Blood pressure</div><div className="font-mono text-lg text-slate-100">{externalVitals.bpSys ? `${externalVitals.bpSys}/${externalVitals.bpDia}` : '—'} mmHg</div></div>
+        <div className="rounded-md border border-slate-800 bg-slate-900 p-3"><div className="text-xs text-slate-400">Temperature</div><div className="font-mono text-lg text-slate-100">{externalVitals.temp ?? '—'} °C</div></div>
+      </div>
+      {vitalGuidance.length ? (
+        <ul className="space-y-2">
+          {vitalGuidance.map((flag) => (
+            <li key={flag.key} className={`rounded-md border p-3 text-sm ${flag.urgency === 'urgent' ? 'border-red-700 bg-red-950/40 text-red-100' : 'border-amber-800 bg-amber-950/30 text-amber-100'}`}>
+              <div className="font-semibold">{flag.label}: {flag.value}</div>
+              <p className="mt-1">{flag.guidance}</p>
+              <p className="mt-1 text-xs">Can be relevant with: {flag.relatedSymptoms.map((id) => SYMPTOM_LABELS[id] || id).join(', ')}{flag.selectedSymptoms.length ? ` · Selected: ${flag.selectedSymptoms.map((id) => SYMPTOM_LABELS[id] || id).join(', ')}` : ''}</p>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="text-xs text-slate-400">No reference flags for the available values. Normal readings do not rule out an emergency.</p>
+      )}
+      <p className="mt-3 text-xs text-slate-500">General adult reference guidance only. Recheck readings; devices and individual baselines vary. Vitals alone cannot diagnose a condition.</p>
+    </div>
+  );
 
   if (result) {
     const top = result.results[0];
     const sev = top?.severity === 'EMERGENCY' || top?.severity === 'HIGH' ? 'red' : 'amber';
     return (
       <div>
-        <PageHeader title="AI Diagnosis" subtitle="Explainable AI · Evidence-based" icon={Sparkles} />
+        <PageHeader title={emergency ? 'Emergency Triage Guidance' : 'AI Diagnosis'} subtitle={emergency ? 'Symptom-based decision support' : 'Explainable AI · Evidence-based'} icon={Sparkles} />
+        {emergency && emergencyContact}
+        {emergency && emergencyVitalsSummary}
+        {emergency && <div className="mb-4"><MedicalCopilot embedded emergency onContactEarth={queueCopilotEarthContact} contactQueued={emergencyContactQueued} /></div>}
         {!top ? (
           <div className="panel p-6">
             <div className="text-lg text-slate-100">No critical pattern detected.</div>
@@ -92,8 +165,8 @@ export default function SymptomAssessment() {
               </div>
             )}
             <div className="flex flex-wrap gap-3">
-              <button onClick={() => startTreatment(top)} className="btn-mission"><ClipboardList className="h-5 w-5" /> Start Treatment Coach</button>
-              <button onClick={() => toEarth(top)} className="btn-mission text-amber-300 hover:bg-amber-950/40 hover:border-amber-700"><Radio className="h-5 w-5" /> Generate Earth Alert</button>
+              {!emergency && <button onClick={() => startTreatment(top)} className="btn-mission"><ClipboardList className="h-5 w-5" /> Start Treatment Coach</button>}
+              {!emergency && <button onClick={() => toEarth(top)} className="btn-mission text-amber-300 hover:bg-amber-950/40 hover:border-amber-700"><Radio className="h-5 w-5" /> Generate Earth Alert</button>}
               <button onClick={reset} className="btn-mission">New Assessment</button>
             </div>
           </div>
@@ -104,7 +177,11 @@ export default function SymptomAssessment() {
 
   return (
     <div>
-      <PageHeader title="Symptom Assessment" subtitle="Tap to select · Mix body systems" icon={Stethoscope} />
+      <PageHeader title={emergency ? 'Emergency Assessment' : 'Symptom Assessment'} subtitle={emergency ? 'Quick symptom triage · No account required' : 'Tap to select · Mix body systems'} icon={emergency ? AlertTriangle : Stethoscope} />
+      {emergency && emergencyContact}
+      {emergency && <div className="mb-4"><VitalsTelemetry compact showAttach={false} onReadingsChange={setExternalVitals} /></div>}
+      {emergency && emergencyVitalsSummary}
+      {emergency && <div className="mb-5"><MedicalCopilot embedded emergency onContactEarth={queueCopilotEarthContact} contactQueued={emergencyContactQueued} /></div>}
       {liveVitals && (
         <div className="panel mb-4 flex flex-wrap items-center gap-x-4 gap-y-1 p-3 text-sm text-slate-300">
           <span className="chip border-blue-800 bg-blue-950/40 text-blue-300">Live Vitals · {liveVitals.source}</span>

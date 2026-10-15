@@ -1,47 +1,31 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMission } from '@/lib/MissionContext';
-import { CREW, INVENTORY as SEED } from '@/lib/missionData';
-import { base44 } from '@/api/base44Client';
+import { INVENTORY as SEED } from '@/lib/missionData';
 import VitalsTelemetry from '@/components/VitalsTelemetry';
-import { Stethoscope, Activity, HeartPulse, Pill, Boxes, FileText, Radio, Mic, MapPin, AlertTriangle, ChevronRight, Bluetooth, Moon } from 'lucide-react';
+import { Stethoscope, HeartPulse, Boxes, FileText, Radio, Mic, AlertTriangle, ChevronRight, Bluetooth, Moon } from 'lucide-react';
 
 const TOOLS = [
   { to: '/devices', label: 'Vital Devices', icon: Bluetooth, color: 'cyan' },
   { to: '/assessment', label: 'New Assessment', icon: Stethoscope, color: 'cyan' },
-  { to: '/copilot', label: 'Emergency Protocol', icon: Activity, color: 'red' },
-  { to: '/twin', label: 'Crew Health Profile', icon: HeartPulse, color: 'cyan' },
-  { to: '/space-medicine', label: 'Space Conditions', icon: Pill, color: 'cyan' },
+  { to: '/twin', label: 'Patient Health Record', icon: HeartPulse, color: 'cyan' },
   { to: '/inventory', label: 'Medical Inventory', icon: Boxes, color: 'cyan' },
-  { to: '/commander', label: 'Crew Records', icon: FileText, color: 'cyan' },
+  { to: '/commander', label: 'Patient Records', icon: FileText, color: 'cyan' },
   { to: '/earth-alert', label: 'Earth Alert', icon: Radio, color: 'amber' },
   { to: '/voice', label: 'Voice Assessment', icon: Mic, color: 'cyan' },
   { to: '/wellness', label: 'Sleep & Food', icon: Moon, color: 'cyan' },
-  { to: '/body', label: 'Body Map', icon: MapPin, color: 'cyan' },
 ];
 
 export default function Dashboard() {
   const navigate = useNavigate();
-  const { liveVitals, isGuest } = useMission();
+  const { liveVitals, crew, effectiveCrew } = useMission();
   const [lowStock, setLowStock] = useState([]);
 
   useEffect(() => {
-    if (isGuest) {
-      const low = SEED.filter((it) => it.quantity < (it.unit === 'bags' || it.unit === 'patches' ? 10 : 30))
-        .map((it, i) => ({ id: `g_${i}`, name: it.name, quantity: it.quantity, unit: it.unit }));
-      setLowStock(low);
-      return;
-    }
-    base44.entities.Inventory.filter({}, { limit: 50, fields: ['name', 'quantity', 'unit', 'low_threshold'] })
-      .then((res) => {
-        const low = res.items.filter((it) => it.quantity < (it.low_threshold ?? 30));
-        setLowStock(low);
-      })
-      .catch(() => setLowStock([]));
-  }, [isGuest]);
-
-  const dotClass = (s) => (s === 'green' ? 'bg-emerald-500' : s === 'yellow' ? 'bg-amber-500' : 'bg-red-500');
-  const tone = (s) => (s === 'green' ? 'text-emerald-400' : s === 'yellow' ? 'text-amber-400' : 'text-red-400');
+    const low = SEED.filter((it) => it.quantity < (it.unit === 'bags' || it.unit === 'patches' ? 10 : 30))
+      .map((it, i) => ({ id: `g_${i}`, name: it.name, quantity: it.quantity, unit: it.unit }));
+    setLowStock(low);
+  }, []);
 
   return (
     <div>
@@ -98,21 +82,21 @@ export default function Dashboard() {
         </div>
       </div>
 
-      <div className="mb-3 mt-8 text-xs font-medium text-slate-400">Crew Readiness</div>
-      <div className="mb-8 grid grid-cols-2 gap-3 lg:grid-cols-4">
-        {CREW.map((c) => (
-          <button key={c.id} onClick={() => navigate('/twin')} className="panel p-4 text-left transition hover:border-blue-500">
-            <div className="flex items-center justify-between">
-              <div className="text-sm font-semibold text-slate-100">{c.name}</div>
-              <span className={`inline-block h-2.5 w-2.5 rounded-full ${dotClass(c.status)}`} />
-            </div>
-            <div className="mt-2 flex items-end gap-1">
-              <span className={`font-mono text-2xl font-bold ${tone(c.status)}`}>{c.score}</span>
-              <span className="mb-1 text-xs text-slate-500">/100</span>
-            </div>
-            <div className="text-xs text-slate-400">{c.role}</div>
+      <div className="mb-3 mt-8 flex items-center justify-between">
+        <div className="text-xs font-medium text-slate-400">Patient Health Profile</div>
+        <button onClick={() => navigate('/crew')} className="text-xs font-medium text-blue-400 hover:text-blue-300">Manage profiles</button>
+      </div>
+      <div className="mb-8">
+        {crew ? (
+          <button onClick={() => navigate('/twin')} className="panel w-full p-4 text-left transition hover:border-blue-500">
+            <div className="text-sm font-semibold text-slate-100">{crew.name}</div>
+            <div className="mt-1 text-xs text-slate-400">{crew.bloodType || 'Blood type not recorded'} · {crew.allergies ? `Allergies: ${crew.allergies}` : 'Allergies not recorded'}</div>
           </button>
-        ))}
+        ) : (
+          <button onClick={() => navigate('/crew')} className="panel w-full p-4 text-left text-sm text-slate-400 transition hover:border-blue-500">
+            {effectiveCrew.length ? 'Select a patient profile to view health information.' : 'No patient profiles have been added.'}
+          </button>
+        )}
       </div>
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">

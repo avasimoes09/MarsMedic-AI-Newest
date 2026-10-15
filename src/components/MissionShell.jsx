@@ -1,34 +1,30 @@
 import { Outlet, useNavigate, Navigate } from 'react-router-dom';
 import { useMission } from '@/lib/MissionContext';
 import MissionClock from './MissionClock';
-import FingerprintGate from './FingerprintGate';
-import { Home, Activity, Pill, Radio, Stethoscope, HeartPulse, MapPin, Boxes, FileText, Bluetooth, LogOut, Moon } from 'lucide-react';
+import { Home, Radio, Stethoscope, HeartPulse, Boxes, FileText, Bluetooth, LogOut, Moon, Loader2 } from 'lucide-react';
 
 const NAV = [
   { to: '/dashboard', label: 'Bridge', icon: Home },
   { to: '/devices', label: 'Devices', icon: Bluetooth },
-  { to: '/twin', label: 'Crew Health Profile', icon: HeartPulse },
+  { to: '/twin', label: 'Patient Health Record', icon: HeartPulse },
   { to: '/wellness', label: 'Wellness', icon: Moon },
-  { to: '/body', label: 'Body Map', icon: MapPin },
   { to: '/assessment', label: 'Assess', icon: Stethoscope },
-  { to: '/copilot', label: 'Copilot', icon: Activity },
-  { to: '/space-medicine', label: 'Space Med', icon: Pill },
   { to: '/inventory', label: 'Inventory', icon: Boxes },
   { to: '/earth-alert', label: 'Earth Alert', icon: Radio },
-  { to: '/commander', label: 'Commander', icon: FileText },
+  { to: '/commander', label: 'Patient Records', icon: FileText },
 ];
 
 export default function MissionShell() {
-  const { session, crew, logout, requestAuth, authGate, clearAuth, isGuest } = useMission();
+  const { session, sessionLoading, crew, logout, isGuest } = useMission();
   const navigate = useNavigate();
+  if (sessionLoading) return <div className="flex min-h-screen items-center justify-center bg-slate-950"><Loader2 className="h-6 w-6 animate-spin text-blue-400" aria-label="Restoring local session" /></div>;
   if (!session) return <Navigate to="/" replace />;
   if (!isGuest && !crew) return <Navigate to="/crew" replace />;
-  const statusColor = crew ? (crew.status === 'green' ? 'text-emerald-400' : crew.status === 'yellow' ? 'text-amber-400' : 'text-red-400') : 'text-amber-400';
 
-  const switchCrew = () => requestAuth(() => navigate('/crew'));
-  const exitToLogin = () => {
-    if (isGuest) { logout(); navigate('/'); return; }
-    requestAuth(() => { logout(); navigate('/'); });
+  const switchCrew = () => navigate('/crew');
+  const exitToLogin = async () => {
+    await logout();
+    navigate('/');
   };
 
   return (
@@ -53,7 +49,7 @@ export default function MissionShell() {
                 <div className="flex h-7 w-7 items-center justify-center rounded-full bg-amber-900 text-xs font-bold text-amber-200">G</div>
                 <div className="text-left">
                   <div className="text-xs font-semibold text-amber-200">Guest User</div>
-                  <div className="text-[11px] text-amber-400">No crew assigned</div>
+                  <div className="text-[11px] text-amber-400">No patient selected</div>
                 </div>
               </div>
             ) : (
@@ -61,7 +57,7 @@ export default function MissionShell() {
                 <div className="flex h-7 w-7 items-center justify-center rounded-full bg-slate-700 text-xs font-bold text-slate-200">{crew.initials}</div>
                 <div className="text-left">
                   <div className="text-xs font-semibold text-slate-100">{crew.name}</div>
-                  <div className={`text-[11px] ${statusColor}`}>Readiness {crew.score}/100</div>
+                  <div className="text-[11px] text-slate-400">{crew.bloodType || 'Patient profile'}</div>
                 </div>
               </button>
             )}
@@ -82,13 +78,6 @@ export default function MissionShell() {
         <Outlet />
       </main>
 
-      {authGate && (
-        <FingerprintGate
-          title={authGate.title || 'Biometric Re-Auth Required'}
-          onSuccess={() => { const cb = authGate.cb; clearAuth(); cb && cb(); }}
-          onCancel={clearAuth}
-        />
-      )}
     </div>
   );
 }
