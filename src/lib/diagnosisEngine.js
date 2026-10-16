@@ -4,6 +4,46 @@ import { FOLLOWUP_BONUSES } from './followupQuestions.js';
 const SYMPTOM_LABELS = {};
 Object.values(SYMPTOMS).forEach((arr) => arr.forEach((s) => { SYMPTOM_LABELS[s.id] = s.label; }));
 
+const SPACEFLIGHT_SYMPTOM_RULES = [
+  ['stuffy_head', 'Nasal Congestion Evaluation'],
+  ['sinus_pressure', 'Sinus Pressure Evaluation'],
+  ['post_nasal_drip', 'Post-nasal Drip Evaluation'],
+  ['sore_throat', 'Sore Throat Evaluation'],
+  ['lumbar_stiffness', 'Lower Back Stiffness Evaluation'],
+  ['nerve_discomfort', 'Nerve-like Back Discomfort Evaluation', 'MEDIUM'],
+  ['height_increase', 'Standing Height Change Evaluation'],
+  ['reduced_torso_flexibility', 'Torso Flexibility Evaluation'],
+  ['skin_fold_rash', 'Skin-fold Rash Evaluation'],
+  ['skin_peeling', 'Skin Peeling Evaluation'],
+  ['skin_stinging', 'Skin Irritation Evaluation'],
+  ['nerve_path_blisters', 'Blistering Rash Evaluation', 'MEDIUM'],
+  ['tingling_skin', 'Localized Skin Sensitivity Evaluation'],
+  ['cold_sore', 'Cold Sore Evaluation'],
+  ['swollen_lymph_nodes', 'Swollen Lymph Node Evaluation'],
+  ['throat_irritation', 'Throat Irritation Evaluation'],
+  ['eye_irritation', 'Eye Irritation Evaluation'],
+  ['exertional_shortness_of_breath', 'Breathlessness with Exertion Evaluation', 'MEDIUM'],
+  ['difficulty_starting_urination', 'Difficulty Starting Urination Evaluation'],
+  ['slow_urinary_stream', 'Slow Urinary Stream Evaluation'],
+  ['incomplete_emptying', 'Incomplete Bladder Emptying Evaluation'],
+  ['bladder_pressure', 'Bladder Pressure Evaluation', 'MEDIUM'],
+  ['unable_to_urinate', 'Urgent Urinary Retention Evaluation', 'HIGH',
+    ['Seek urgent medical assessment, especially with bladder pressure or lower abdominal pain', 'Do not attempt catheterization without trained clinical direction', 'Record symptom onset and urine output if safe to do so']],
+].map(([symptom, name, severity = 'LOW', treatment]) => ({
+  id: `s_${symptom}`,
+  name,
+  severity,
+  confidence: severity === 'HIGH' ? 78 : severity === 'MEDIUM' ? 50 : 44,
+  requires: [symptom],
+  rejected: [],
+  treatment: treatment || [
+    'Record when the symptom started and whether it is changing',
+    'Check for related symptoms and record vital signs when available',
+    'Avoid suspected irritants or triggers when practical',
+    'Seek medical assessment if it persists, worsens, or becomes concerning',
+  ],
+}));
+
 // Every unique symptom has at least one rule, so any non-empty selection
 // produces a result. Key combinations add higher-confidence diagnoses.
 // Treatment steps are written in plain language for crew with no medical training.
@@ -62,6 +102,26 @@ export const DIAGNOSIS_RULES = [
   { id: 'hypertension_headache', name: 'Hypertensive Headache', severity: 'MEDIUM', confidence: 62,
     requires: ['headache', 'blurry_vision'], rejected: ['Migraine', 'Fluid Shift'],
     treatment: ['Check blood pressure', 'Reduce stimulants (caffeine, etc.)', 'Rest', 'Reassess in 2 hours'] },
+
+  // --- Spaceflight-related symptom patterns: decision support, not confirmation ---
+  { id: 'spaceflight_rhinitis', name: 'Possible Spaceflight Rhinitis (Puffy Face)', severity: 'LOW', confidence: 72,
+    requires: ['stuffy_head', 'sinus_pressure', 'post_nasal_drip', 'puffy_face', 'sore_throat'], rejected: ['Infection', 'Allergy'],
+    treatment: ['Record symptoms and temperature', 'Consider infection, allergy, and other causes rather than assuming a fluid shift', 'Use only approved saline or other remedies', 'Seek medical advice if symptoms persist or worsen'] },
+  { id: 'spinal_elongation', name: 'Possible Spinal Elongation / Back Discomfort', severity: 'MEDIUM', confidence: 72,
+    requires: ['lumbar_stiffness', 'nerve_discomfort', 'height_increase', 'reduced_torso_flexibility'], rejected: ['Muscle Strain', 'Disc Injury'],
+    treatment: ['Record pain, function, and height changes consistently', 'Use only approved mobility and exercise routines', 'Seek medical assessment for persistent or shooting pain', 'Escalate urgently for new weakness, numbness, or bladder/bowel changes'] },
+  { id: 'contact_dermatitis_intertrigo', name: 'Possible Contact Dermatitis / Intertrigo', severity: 'LOW', confidence: 70,
+    requires: ['skin_fold_rash', 'itching', 'skin_peeling', 'skin_stinging'], rejected: ['Viral Rash', 'Skin Infection'],
+    treatment: ['Gently clean and dry the affected area', 'Reduce friction and avoid suspected irritants', 'Do not share towels or clothing', 'Seek medical advice for spreading redness, drainage, fever, or worsening pain'] },
+  { id: 'viral_reactivation', name: 'Possible Viral Reactivation Pattern', severity: 'MEDIUM', confidence: 76,
+    requires: ['nerve_path_blisters', 'tingling_skin', 'cold_sore', 'fatigue', 'swollen_lymph_nodes'], rejected: ['Contact Dermatitis', 'Other Rash'],
+    treatment: ['Seek clinical assessment; these symptoms do not confirm a viral cause', 'Avoid touching active lesions and sharing items that contact them', 'Use antiviral medicine only when prescribed for this episode', 'Record temperature and symptom progression'] },
+  { id: 'particle_inhalation', name: 'Possible Inhaled Particulate Irritation', severity: 'MEDIUM', confidence: 76,
+    requires: ['cough', 'throat_irritation', 'wheezing', 'eye_irritation', 'shortness_of_breath', 'exertional_shortness_of_breath'], rejected: ['Asthma', 'Respiratory Infection'],
+    treatment: ['Move away from the suspected source if safe', 'Follow cabin air-filter and cleanup procedures', 'Rinse irritated eyes with clean water if appropriate', 'Seek urgent help for worsening or significant breathing difficulty'] },
+  { id: 'urinary_retention', name: 'Possible Acute Urinary Retention', severity: 'HIGH', confidence: 82,
+    requires: ['unable_to_urinate', 'difficulty_starting_urination', 'slow_urinary_stream', 'incomplete_emptying', 'bladder_pressure'], rejected: ['Urinary Tract Infection', 'Medication Effect'],
+    treatment: ['Seek urgent medical assessment for inability to urinate or a painful, distended bladder', 'Do not attempt catheterization without trained clinical direction', 'Review medicines with a clinician', 'Record urine output and symptom onset if safe to do so'] },
 
   // --- Single-symptom rules (guarantee every symptom yields a result) ---
   // Cardiovascular
@@ -165,6 +225,8 @@ export const DIAGNOSIS_RULES = [
   // General
   { id: 's_fatigue', name: 'Fatigue Evaluation', severity: 'LOW', confidence: 42, requires: ['fatigue'], rejected: ['Dehydration'],
     treatment: ['Rest', 'Drink fluids and eat properly', 'Review sleep habits', 'Reassess in 24 hours'] },
+
+  ...SPACEFLIGHT_SYMPTOM_RULES,
 ];
 
 const EMERGENCY_SYMPTOMS = ['difficulty_speaking', 'neck_stiffness', 'disorientation', 'blood_in_urine'];
