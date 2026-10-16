@@ -6,6 +6,21 @@ import { AlertTriangle, Fingerprint, Loader2, LockKeyhole, UserRound } from 'luc
 
 const inputClass = 'w-full rounded-md border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm text-slate-100 outline-none focus:border-blue-500';
 
+function signInErrorMessage(error) {
+  if (error.message === 'Failed to fetch') {
+    return 'The local service is not running. Start MarsMedic with npm run dev.';
+  }
+  if (error.message === `Local service returned ${error.status}.`) {
+    if (error.status === 401) {
+      return 'The local service rejected the sign-in request. Open MarsMedic from this computer at http://127.0.0.1:8787 and try again.';
+    }
+    if (error.status === 404) {
+      return 'The local sign-in endpoint was not found. Restart the MarsMedic local service, then reload the app.';
+    }
+  }
+  return error.message;
+}
+
 export default function MarsLogin() {
   const { createAccount, loginWithPin, loginWithPasskey, loginGuest, session, sessionLoading } = useMission();
   const navigate = useNavigate();
@@ -35,9 +50,7 @@ export default function MarsLogin() {
       if (mode === 'create') await createAccount({ name, username, pin, ...health });
       else await loginWithPin(username, pin);
     } catch (requestError) {
-      setError(requestError.message === 'Failed to fetch'
-        ? 'The local service is not running. Start MarsMedic with npm run dev.'
-        : requestError.message);
+      setError(signInErrorMessage(requestError));
     } finally {
       setBusy(false);
     }
@@ -49,7 +62,7 @@ export default function MarsLogin() {
     try {
       await loginWithPasskey(username);
     } catch (requestError) {
-      setError(requestError.message);
+      setError(signInErrorMessage(requestError));
     } finally {
       setBusy(false);
     }

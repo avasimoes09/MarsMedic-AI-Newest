@@ -36,6 +36,3 @@ data
 
 .env
 .vite
-
-# Local link to a Base44 app, written by `base44 link`
-base44/.app.jsonc

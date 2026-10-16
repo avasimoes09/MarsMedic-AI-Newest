@@ -1,9 +1,0 @@
-{
-  "name": "marsmedic-ai",
-  "site": {
-    "installCommand": "npm install",
-    "buildCommand": "npm run build",
-    "serveCommand": "npm run dev",
-    "outputDirectory": "./dist"
-  }
-}
