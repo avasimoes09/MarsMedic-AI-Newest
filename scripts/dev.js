@@ -2,7 +2,7 @@ import { spawn } from 'node:child_process';
 
 const processes = [
   spawn(process.execPath, ['server/index.js'], { stdio: 'inherit' }),
-  spawn(process.execPath, ['node_modules/vite/bin/vite.js', '--host', '0.0.0.0'], { stdio: 'inherit' }),
+  spawn(process.execPath, ['node_modules/vite/bin/vite.js', '--host', process.env.LAN_HOST || '127.0.0.1'], { stdio: 'inherit' }),
 ];
 
 let stopping = false;

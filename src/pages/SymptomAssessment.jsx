@@ -6,6 +6,7 @@ import { BODY_SYSTEMS, SYMPTOMS } from '@/lib/missionData';
 import { runDiagnosis } from '@/lib/diagnosisEngine';
 import { interpretVitals } from '@/lib/vitalGuidance';
 import { getFollowupsForSymptoms } from '@/lib/followupQuestions';
+import { celsiusToFahrenheit, formatTemperature } from '@/lib/temperature';
 import VitalsTelemetry from '@/components/VitalsTelemetry';
 import MedicalCopilot from '@/pages/MedicalCopilot';
 import { Stethoscope, ChevronRight, Check, X, AlertTriangle, Sparkles, ClipboardList, Radio, Send } from 'lucide-react';
@@ -13,7 +14,7 @@ import { Stethoscope, ChevronRight, Check, X, AlertTriangle, Sparkles, Clipboard
 export default function SymptomAssessment({ emergency = false }) {
   const { state } = useLocation();
   const navigate = useNavigate();
-  const { setDiagnosis, liveVitals: patientVitals, applyDiagnosisToCrew, queueEmergencyPacket } = useMission();
+  const { setDiagnosis, liveVitals: patientVitals, applyDiagnosisToCrew, queueEmergencyPacket, temperatureUnit, crew } = useMission();
   const [externalVitals, setExternalVitals] = useState(null);
   const liveVitals = emergency ? externalVitals : patientVitals;
   const [systems, setSystems] = useState(state?.system ? [state.system] : []);
@@ -33,16 +34,19 @@ export default function SymptomAssessment({ emergency = false }) {
 
   useEffect(() => {
     if (state?.system) {
-      setSystems((prev) => (prev.includes(state.system) ? prev : [...prev, state.system]));
+      setSystems([state.system]);
       setResult(null);
     }
   }, [state]);
 
-  const toggleSystem = (id) => setSystems((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+  const toggleSystem = (id) => setSystems((prev) => (prev.includes(id) ? [] : [id]));
   const toggleSymptom = (id) => setSelected((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]));
   const toggleFollow = (k, v) => setFollowups((f) => ({ ...f, [k]: f[k] === v ? undefined : v }));
+  const formatFollowupOption = (option) => temperatureUnit === 'F'
+    ? option.replace(/(\d+(?:\.\d+)?)°C/g, (_, value) => `${celsiusToFahrenheit(value).toFixed(1)}°F`)
+    : option;
   const diagnose = () => {
-    const res = runDiagnosis(selected, followups);
+    const res = runDiagnosis(selected, followups, crew || {});
     setResult(res);
     if (!emergency && res.results[0]) applyDiagnosisToCrew(res.results[0]);
   };
@@ -91,7 +95,7 @@ export default function SymptomAssessment({ emergency = false }) {
         <div className="rounded-md border border-slate-800 bg-slate-900 p-3"><div className="text-xs text-slate-400">Heart rate</div><div className="font-mono text-lg text-slate-100">{externalVitals.hr ?? '—'} bpm</div></div>
         <div className="rounded-md border border-slate-800 bg-slate-900 p-3"><div className="text-xs text-slate-400">Oxygen saturation</div><div className="font-mono text-lg text-slate-100">{externalVitals.spo2 ?? '—'}%</div></div>
         <div className="rounded-md border border-slate-800 bg-slate-900 p-3"><div className="text-xs text-slate-400">Blood pressure</div><div className="font-mono text-lg text-slate-100">{externalVitals.bpSys ? `${externalVitals.bpSys}/${externalVitals.bpDia}` : '—'} mmHg</div></div>
-        <div className="rounded-md border border-slate-800 bg-slate-900 p-3"><div className="text-xs text-slate-400">Temperature</div><div className="font-mono text-lg text-slate-100">{externalVitals.temp ?? '—'} °C</div></div>
+        <div className="rounded-md border border-slate-800 bg-slate-900 p-3"><div className="text-xs text-slate-400">Temperature</div><div className="font-mono text-lg text-slate-100">{formatTemperature(externalVitals.temp, temperatureUnit)}</div></div>
       </div>
       {vitalGuidance.length ? (
         <ul className="space-y-2">
@@ -142,6 +146,23 @@ export default function SymptomAssessment({ emergency = false }) {
                 <div className="h-2 w-full overflow-hidden rounded-full bg-slate-800"><div className={`h-full ${sev === 'red' ? 'bg-red-500' : 'bg-amber-500'}`} style={{ width: `${top.confidence}%` }} /></div>
               </div>
             </div>
+            {!emergency && (
+              <div className="panel p-4">
+                <div className="mb-2 text-sm font-semibold text-slate-100">Patient record context</div>
+                <p className="text-xs text-slate-400">
+                  {top.historyFactors?.length
+                    ? `Relevant patient-record context was included in this result: ${top.historyFactors.map((factor) => factor.label).join(', ')}.`
+                    : result.medicalHistory.historyRecorded
+                      ? 'Recorded medical history was checked. No relevant history match was found; symptoms remain the primary evidence.'
+                      : 'No medical history is recorded. Symptoms remain the primary evidence.'}
+                </p>
+                <div className="mt-3 grid gap-2 text-sm sm:grid-cols-2">
+                  <div><span className="text-slate-400">Allergies: </span><span className="text-slate-200">{result.medicalHistory.allergies || 'Not recorded'}</span></div>
+                  <div><span className="text-slate-400">Current medications: </span><span className="text-slate-200">{result.medicalHistory.medications || 'Not recorded'}</span></div>
+                </div>
+                <p className="mt-3 text-xs text-amber-200">Recorded vital values may be outdated; recheck them. This decision-support result is not a diagnosis. Confirm medication and allergy safety with a qualified clinician.</p>
+              </div>
+            )}
             <div className="grid gap-4 md:grid-cols-2">
               <div className="panel p-5">
                 <div className="mb-3 text-sm font-semibold text-emerald-300">Evidence</div>
@@ -188,10 +209,10 @@ export default function SymptomAssessment({ emergency = false }) {
           <span>HR {liveVitals.hr ?? '—'}</span>
           <span>SpO₂ {liveVitals.spo2 ?? '—'}</span>
           <span>BP {liveVitals.bpSys ? `${liveVitals.bpSys}/${liveVitals.bpDia}` : '—'}</span>
-          <span>TEMP {liveVitals.temp ?? '—'}°C</span>
+          <span>TEMP {formatTemperature(liveVitals.temp, temperatureUnit)}</span>
         </div>
       )}
-      <div className="mb-2 text-xs font-medium text-slate-400">Body Systems · tap to open one or more</div>
+      <div className="mb-2 text-xs font-medium text-slate-400">Symptom category · tap one category to open</div>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
         {BODY_SYSTEMS.map((s) => {
           const active = systems.includes(s.id);
@@ -247,7 +268,7 @@ export default function SymptomAssessment({ emergency = false }) {
               <div className="flex flex-wrap gap-2">
                 {f.options.map((o) => {
                   const on = followups[f.key] === o;
-                  return <button key={o} onClick={() => toggleFollow(f.key, o)} className={`rounded-md border px-4 py-2 text-sm ${on ? 'border-blue-500 bg-blue-950/50 text-slate-100' : 'border-slate-700 text-slate-300 hover:border-blue-600'}`}>{o}</button>;
+                  return <button key={o} onClick={() => toggleFollow(f.key, o)} className={`rounded-md border px-4 py-2 text-sm ${on ? 'border-blue-500 bg-blue-950/50 text-slate-100' : 'border-slate-700 text-slate-300 hover:border-blue-600'}`}>{formatFollowupOption(o)}</button>;
                 })}
               </div>
             </div>

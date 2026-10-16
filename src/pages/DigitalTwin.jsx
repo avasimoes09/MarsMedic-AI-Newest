@@ -2,6 +2,7 @@ import { useNavigate } from 'react-router-dom';
 import { useMission } from '@/lib/MissionContext';
 import PageHeader from '@/components/PageHeader';
 import { Activity, Pencil } from 'lucide-react';
+import { formatTemperature } from '@/lib/temperature';
 
 function HealthField({ label, value }) {
   return (
@@ -13,7 +14,7 @@ function HealthField({ label, value }) {
 }
 
 export default function DigitalTwin() {
-  const { crew, liveVitals } = useMission();
+  const { crew, liveVitals, temperatureUnit } = useMission();
   const navigate = useNavigate();
   const conditions = Array.isArray(crew?.conditions) ? crew.conditions : [];
 
@@ -48,7 +49,7 @@ export default function DigitalTwin() {
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
             <HealthField label="Heart rate" value={liveVitals.hr ? `${liveVitals.hr} bpm` : ''} />
             <HealthField label="Blood pressure" value={liveVitals.bpSys ? `${liveVitals.bpSys}/${liveVitals.bpDia} mmHg` : ''} />
-            <HealthField label="Temperature" value={liveVitals.temp ? `${liveVitals.temp} °C` : ''} />
+            <HealthField label="Temperature" value={liveVitals.temp != null ? formatTemperature(liveVitals.temp, temperatureUnit) : ''} />
             <HealthField label="Oxygen saturation" value={liveVitals.spo2 ? `${liveVitals.spo2}%` : ''} />
             <HealthField label="Respiratory rate" value={liveVitals.respiratoryRate ? `${liveVitals.respiratoryRate}/min` : ''} />
           </div>

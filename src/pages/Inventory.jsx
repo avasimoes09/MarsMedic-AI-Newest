@@ -2,6 +2,16 @@ import { useEffect, useState, useCallback } from 'react';
 import PageHeader from '@/components/PageHeader';
 import { INVENTORY as SEED } from '@/lib/missionData';
 import { Boxes, AlertTriangle, Plus, Trash2, Check, X, Pencil } from 'lucide-react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 const defaultThreshold = (unit) => (unit === 'bags' || unit === 'patches' ? 10 : 30);
 const isLow = (it) => it.quantity < (it.low_threshold ?? defaultThreshold(it.unit));
@@ -15,6 +25,7 @@ export default function Inventory() {
   const [editing, setEditing] = useState(null);
   const [draft, setDraft] = useState(null);
   const [saving, setSaving] = useState(false);
+  const [itemToDelete, setItemToDelete] = useState(null);
 
   const load = useCallback(async () => {
     setItems(seedItems());
@@ -38,8 +49,9 @@ export default function Inventory() {
     }
   };
 
-  const remove = async (id) => {
-    setItems((prev) => prev.filter((it) => it.id !== id));
+  const remove = async () => {
+    setItems((prev) => prev.filter((it) => it.id !== itemToDelete.id));
+    setItemToDelete(null);
   };
 
   const set = (k, v) => setDraft((d) => ({ ...d, [k]: v }));
@@ -87,9 +99,9 @@ export default function Inventory() {
                     <div className="mt-2 text-xs text-slate-400"><span className="font-medium">Usage:</span> {it.usage}</div>
                     <div className="mt-1 text-xs text-slate-500">Low-stock threshold: {it.low_threshold ?? defaultThreshold(it.unit)} {it.unit}</div>
                     {low && <div className="mt-2 flex items-center gap-1 text-xs text-amber-300"><AlertTriangle className="h-3.5 w-3.5" /> Low stock — request resupply</div>}
-                    <div className="mt-3 flex gap-2">
+                    <div className="mt-3 flex justify-between">
                       <button onClick={() => startEdit(it)} className="btn-mission py-2 text-sm"><Pencil className="h-4 w-4" /> Edit</button>
-                      <button onClick={() => remove(it.id)} className="btn-mission py-2 text-sm text-red-400 hover:bg-red-950/40 hover:border-red-700"><Trash2 className="h-4 w-4" /></button>
+                      <button onClick={() => setItemToDelete(it)} aria-label={`Delete ${it.name}`} className="btn-mission py-2 text-sm text-red-400 hover:bg-red-950/40 hover:border-red-700"><Trash2 className="h-4 w-4" /></button>
                     </div>
                   </>
                 )}
@@ -120,6 +132,21 @@ export default function Inventory() {
           </div>
         </div>
       )}
+
+      <AlertDialog open={itemToDelete !== null} onOpenChange={(open) => !open && setItemToDelete(null)}>
+        <AlertDialogContent className="border-slate-700 bg-slate-900 text-slate-100">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete {itemToDelete?.name}?</AlertDialogTitle>
+            <AlertDialogDescription className="text-slate-400">
+              This will remove this supply from your inventory. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="border-slate-700 bg-slate-800 text-slate-100 hover:bg-slate-700">Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={remove} className="bg-red-700 text-white hover:bg-red-600">Delete</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useMission } from '@/lib/MissionContext';
 import PageHeader from '@/components/PageHeader';
 import { Radio, Send, Check } from 'lucide-react';
+import { formatTemperature } from '@/lib/temperature';
 
 function Field({ label, value }) {
   return (
@@ -13,7 +14,7 @@ function Field({ label, value }) {
 }
 
 export default function EarthAlert() {
-  const { crew, diagnosis, earthQueue, queueEarthPacket, liveVitals } = useMission();
+  const { crew, diagnosis, earthQueue, queueEarthPacket, liveVitals, temperatureUnit } = useMission();
   const [queued, setQueued] = useState(false);
 
   if (!crew) {
@@ -49,7 +50,7 @@ export default function EarthAlert() {
   const vitalsText = [
     `HR ${packet.vitals.hr || '—'}`,
     `BP ${packet.vitals.bp || '—'}`,
-    `T ${packet.vitals.temp ? `${packet.vitals.temp}°C` : '—'}`,
+    `T ${formatTemperature(packet.vitals.temp, temperatureUnit)}`,
     `SpO₂ ${packet.vitals.spo2 ? `${packet.vitals.spo2}%` : '—'}`,
     `RR ${packet.vitals.rr || '—'}`,
   ].join(' · ');

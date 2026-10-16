@@ -13,6 +13,13 @@ export function MissionProvider({ children }) {
   const [sessionLoading, setSessionLoading] = useState(true);
   const [diagnosis, setDiagnosisState] = useState(null);
   const [completedSteps, setCompletedSteps] = useState({});
+  const [temperatureUnit, setTemperatureUnitState] = useState(() => {
+    try {
+      return localStorage.getItem('marsmedic_temperature_unit') === 'F' ? 'F' : 'C';
+    } catch {
+      return 'C';
+    }
+  });
   const [earthQueue, setEarthQueue] = useState([]);
   const [liveVitals, setLiveVitalsState] = useState(null);
   const [events, setEvents] = useState([]);
@@ -162,13 +169,27 @@ export function MissionProvider({ children }) {
     if (next) recordEvent('Assessment', `${next.name || 'Assessment'} · ${next.severity || 'severity not recorded'}`);
   }, [recordEvent]);
 
+  const setTemperatureUnit = useCallback((unit) => {
+    if (unit !== 'C' && unit !== 'F') return;
+    setTemperatureUnitState(unit);
+    try {
+      localStorage.setItem('marsmedic_temperature_unit', unit);
+    } catch {
+      // The preference still applies for this session if storage is unavailable.
+    }
+  }, []);
+
   const toggleStep = useCallback((diagnosisId, idx) => {
+    if (diagnosis?.id !== diagnosisId || !Number.isInteger(idx) || idx < 0) return;
+    const arr = completedSteps[diagnosisId] || [];
+    if (idx > arr.length) return;
     setCompletedSteps((prev) => {
-      const arr = prev[diagnosisId] || [];
-      return { ...prev, [diagnosisId]: arr.includes(idx) ? arr.filter((i) => i !== idx) : [...arr, idx] };
+      const current = prev[diagnosisId] || [];
+      if (idx > current.length) return prev;
+      return { ...prev, [diagnosisId]: idx < current.length ? current.slice(0, idx) : [...current, idx] };
     });
     recordEvent('Treatment plan', `Updated step ${idx + 1} for ${diagnosisId}`);
-  }, [recordEvent]);
+  }, [completedSteps, diagnosis, recordEvent]);
 
   const queueEarthPacket = useCallback((packet) => {
     setEarthQueue((current) => [...current, packet]);
@@ -237,6 +258,8 @@ export function MissionProvider({ children }) {
       setDiagnosis: updateDiagnosis,
       completedSteps,
       toggleStep,
+      temperatureUnit,
+      setTemperatureUnit,
       earthQueue,
       queueEarthPacket,
       queueEmergencyPacket,

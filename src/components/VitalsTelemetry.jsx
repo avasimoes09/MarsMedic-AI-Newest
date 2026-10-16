@@ -3,6 +3,7 @@ import { useEffect } from 'react';
 import { useVitalDevice } from '@/hooks/useVitalDevice';
 import { useMission } from '@/lib/MissionContext';
 import { useNavigate } from 'react-router-dom';
+import { celsiusToFahrenheit } from '@/lib/temperature';
 
 const RANGES = {
   hr: { ok: (v) => v >= 50 && v <= 100, label: 'HR', unit: 'bpm' },
@@ -24,15 +25,20 @@ function Waveform({ data }) {
   );
 }
 
-function Readout({ kind, value }) {
+function Readout({ kind, value, temperatureUnit }) {
   const r = RANGES[kind];
-  const display = kind === 'bp' ? (value.bpSys ? `${value.bpSys}/${value.bpDia}` : '—') : (value ?? '—');
+  const display = kind === 'bp'
+    ? (value.bpSys ? `${value.bpSys}/${value.bpDia}` : '—')
+    : kind === 'temp' && value != null
+      ? (temperatureUnit === 'F' ? celsiusToFahrenheit(value).toFixed(1) : Number(value).toFixed(1))
+      : (value ?? '—');
   const warn = kind === 'bp' ? false : value != null && !r.ok(value);
+  const unit = kind === 'temp' ? `°${temperatureUnit}` : r.unit;
   return (
     <div className={`rounded-lg border p-3 ${warn ? 'border-red-700 bg-red-950/40' : 'border-slate-800 bg-slate-900'}`}>
       <div className="text-[11px] font-medium uppercase tracking-wide text-slate-400">{r.label}</div>
       <div className={`font-mono text-2xl font-bold ${warn ? 'text-red-400' : 'text-slate-100'}`}>{display}</div>
-      <div className="text-[11px] text-slate-500">{r.unit}</div>
+      <div className="text-[11px] text-slate-500">{unit}</div>
     </div>
   );
 }
@@ -40,7 +46,7 @@ function Readout({ kind, value }) {
 export default function VitalsTelemetry({ compact = false, showAttach = true, onReadingsChange }) {
   const dev = useVitalDevice();
   const { status, deviceName, readings, waveform, supported, connect, disconnect, simulate } = dev;
-  const { setLiveVitals } = useMission();
+  const { setLiveVitals, temperatureUnit, setTemperatureUnit } = useMission();
   const navigate = useNavigate();
   const connected = status === 'connected';
 
@@ -89,7 +95,13 @@ export default function VitalsTelemetry({ compact = false, showAttach = true, on
             <Readout kind="hr" value={readings.hr} />
             <Readout kind="spo2" value={readings.spo2} />
             <Readout kind="bp" value={{ bpSys: readings.bpSys, bpDia: readings.bpDia }} />
-            <Readout kind="temp" value={readings.temp} />
+            <Readout kind="temp" value={readings.temp} temperatureUnit={temperatureUnit} />
+          </div>
+          <div className="mt-2 flex items-center gap-2 text-xs text-slate-400">
+            Temperature unit
+            {['C', 'F'].map((unit) => (
+              <button key={unit} type="button" aria-pressed={temperatureUnit === unit} onClick={() => setTemperatureUnit(unit)} className={`rounded border px-2 py-1 ${temperatureUnit === unit ? 'border-blue-500 bg-blue-950/50 text-slate-100' : 'border-slate-700 text-slate-400'}`}>°{unit}</button>
+            ))}
           </div>
           <div className="mt-3 rounded-md border border-slate-800 bg-slate-800/50 p-2">
             <Waveform data={waveform} />

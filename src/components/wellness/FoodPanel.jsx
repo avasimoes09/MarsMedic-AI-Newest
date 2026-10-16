@@ -40,7 +40,7 @@ export default function FoodPanel({ logs, onSave, onDelete, busy }) {
             key={f}
             type="button"
             onClick={() => setFood(f)}
-            className={`chip transition ${food === f ? 'border-emerald-600 bg-emerald-950/50 text-emerald-200' : 'border-slate-700 bg-slate-900 text-slate-300 hover:border-emerald-700'}`}
+            className={`chip transition ${food === f ? 'border-emerald-600 bg-emerald-950/80 text-emerald-200' : 'border-slate-700 bg-slate-900 text-slate-300 hover:border-emerald-700'}`}
           >
             {f}
           </button>
@@ -54,7 +54,7 @@ export default function FoodPanel({ logs, onSave, onDelete, busy }) {
             key={a}
             type="button"
             onClick={() => setAmount(a)}
-            className={`rounded-md border px-4 py-2 text-sm font-mono transition ${amount === a ? 'border-emerald-500 bg-emerald-950/50 text-emerald-200' : 'border-slate-700 bg-slate-900 text-slate-300 hover:border-emerald-700'}`}
+            className={`rounded-md border px-4 py-2 text-sm font-mono transition ${amount === a ? 'border-emerald-500 bg-emerald-950/80 text-emerald-200' : 'border-slate-700 bg-slate-900 text-slate-300 hover:border-emerald-700'}`}
           >
             {a}
           </button>

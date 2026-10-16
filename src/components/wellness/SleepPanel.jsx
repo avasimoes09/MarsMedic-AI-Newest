@@ -21,7 +21,7 @@ export default function SleepPanel({ logs, onSave, onDelete, busy }) {
         type="date"
         value={date}
         onChange={(e) => setDate(e.target.value)}
-        className="mb-4 mt-1 w-full rounded-md border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 outline-none [color-scheme:dark] focus:border-blue-600"
+        className="mb-4 mt-1 w-full rounded-md border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 outline-none focus:border-blue-600"
       />
 
       <div className="space-y-3">

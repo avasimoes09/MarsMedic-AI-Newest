@@ -1,6 +1,8 @@
 import { createHash, randomBytes } from 'node:crypto';
-import { createReadStream, existsSync } from 'node:fs';
+import { createReadStream, existsSync, readFileSync } from 'node:fs';
 import http from 'node:http';
+import https from 'node:https';
+import { isIP } from 'node:net';
 import path from 'node:path';
 import {
   generateAuthenticationOptions,
@@ -20,7 +22,31 @@ import {
 } from './secureStore.js';
 
 const PORT = Number(process.env.API_PORT || 8787);
-const HOST = '127.0.0.1';
+const LAN_HOST = process.env.LAN_HOST?.trim().toLowerCase();
+const HOST = (process.env.API_HOST || '127.0.0.1').toLowerCase();
+const LOOPBACK_HOSTS = ['localhost', '127.0.0.1', '::1'];
+const ipv4Parts = LAN_HOST && isIP(LAN_HOST) === 4 ? LAN_HOST.split('.').map(Number) : [];
+const isPrivateIpv4 = ipv4Parts.length === 4 && (
+  ipv4Parts[0] === 10 ||
+  (ipv4Parts[0] === 172 && ipv4Parts[1] >= 16 && ipv4Parts[1] <= 31) ||
+  (ipv4Parts[0] === 192 && ipv4Parts[1] === 168) ||
+  (ipv4Parts[0] === 169 && ipv4Parts[1] === 254)
+);
+const isLocalHostname = Boolean(LAN_HOST && (LAN_HOST.endsWith('.local') || LAN_HOST.endsWith('.lan')));
+const isLanHost = Boolean(LAN_HOST && (isPrivateIpv4 || isLocalHostname));
+if (LAN_HOST && !isLanHost) throw new Error('LAN_HOST must be a private IPv4 address or a .local/.lan hostname.');
+if (!LAN_HOST && !LOOPBACK_HOSTS.includes(HOST)) throw new Error('Set LAN_HOST before binding the service to a network interface.');
+if (LAN_HOST && !LOOPBACK_HOSTS.includes(HOST) && HOST !== LAN_HOST) {
+  throw new Error('API_HOST must be localhost or match LAN_HOST.');
+}
+const tlsCertPath = process.env.TLS_CERT_PATH;
+const tlsKeyPath = process.env.TLS_KEY_PATH;
+if (HOST === LAN_HOST && (!tlsCertPath || !tlsKeyPath)) {
+  throw new Error('TLS_CERT_PATH and TLS_KEY_PATH are required when the API is exposed on the LAN.');
+}
+const tlsOptions = HOST === LAN_HOST
+  ? { cert: readFileSync(tlsCertPath), key: readFileSync(tlsKeyPath) }
+  : null;
 const SESSION_MS = 12 * 60 * 60 * 1000;
 const challenges = new Map();
 const attempts = new Map();
@@ -55,7 +81,8 @@ function cookieValue(request, name) {
 }
 
 function sessionCookie(token, maxAge = SESSION_MS / 1000) {
-  return `marsmedic_session=${encodeURIComponent(token)}; HttpOnly; SameSite=Strict; Path=/; Max-Age=${maxAge}`;
+  const secure = LAN_HOST ? '; Secure' : '';
+  return `marsmedic_session=${encodeURIComponent(token)}; HttpOnly; SameSite=Strict; Path=/; Max-Age=${maxAge}${secure}`;
 }
 
 function createSession(response, patientId) {
@@ -121,7 +148,14 @@ function requestOrigin(request) {
   const origin = request.headers.origin;
   if (!origin) throw new Error('Missing request origin.');
   const url = new URL(origin);
-  const isLocalHost = ['localhost', '127.0.0.1', '::1'].includes(url.hostname);
+  if (LAN_HOST) {
+    const requestHost = request.headers.host?.toLowerCase();
+    if (url.protocol !== 'https:' || url.hostname !== LAN_HOST || url.host !== requestHost) {
+      throw new Error('This LAN service only accepts secure same-origin app requests.');
+    }
+    return { origin, rpID: url.hostname };
+  }
+  const isLocalHost = LOOPBACK_HOSTS.includes(url.hostname);
   const forwardedDevelopmentHost = process.env.NODE_ENV !== 'production' &&
     (url.hostname.endsWith('.app.github.dev') || url.hostname.endsWith('.github.dev'));
   if (!isLocalHost && !forwardedDevelopmentHost) throw new Error('This local service only accepts same-device app requests.');
@@ -172,6 +206,13 @@ function serveStatic(request, response) {
 
 async function handle(request, response) {
   const url = new URL(request.url, `http://${request.headers.host || 'localhost'}`);
+  if (LAN_HOST && url.pathname.startsWith('/api/') && !['GET', 'HEAD', 'OPTIONS'].includes(request.method)) {
+    try {
+      requestOrigin(request);
+    } catch (error) {
+      return json(response, 403, { error: error.message });
+    }
+  }
   if (!url.pathname.startsWith('/api/')) return serveStatic(request, response);
 
   try {
@@ -360,7 +401,10 @@ async function handle(request, response) {
   }
 }
 
-export const server = http.createServer((request, response) => {
+const createServer = tlsOptions
+  ? (listener) => https.createServer(tlsOptions, listener)
+  : (listener) => http.createServer(listener);
+export const server = createServer((request, response) => {
   handle(request, response).catch((error) => {
     console.error('Unhandled API error:', error);
     if (!response.headersSent) json(response, 500, { error: 'Local service error.' });
@@ -368,4 +412,5 @@ export const server = http.createServer((request, response) => {
   });
 });
 
-server.listen(PORT, HOST, () => console.log(`MarsMedic local service listening at http://${HOST}:${PORT}`));
+const protocol = tlsOptions ? 'https' : 'http';
+server.listen(PORT, HOST, () => console.log(`MarsMedic local service listening at ${protocol}://${HOST}:${PORT}`));

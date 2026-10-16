@@ -8,7 +8,7 @@ export const BODY_SYSTEMS = [
   { id: 'musculoskeletal', label: 'Musculoskeletal', emoji: '🦴' },
   { id: 'mental', label: 'Mental Health', emoji: '😔' },
   { id: 'space', label: 'Space Conditions', emoji: '🚀' },
-  { id: 'unknown', label: "I Don't Know", emoji: '❓' },
+  { id: 'general', label: 'General / Common', emoji: '🩺' },
 ];
 
 export const SYMPTOMS = {
@@ -54,7 +54,7 @@ export const SYMPTOMS = {
     { id: 'puffy_face', label: 'Puffy Face' }, { id: 'blurry_vision', label: 'Blurry Vision' },
     { id: 'cold_sweats', label: 'Cold Sweats' }, { id: 'disorientation', label: 'Disorientation' },
   ],
-  unknown: [
+  general: [
     { id: 'fever', label: 'Fever' }, { id: 'fatigue', label: 'Fatigue' }, { id: 'weakness', label: 'Weakness' },
     { id: 'dizziness', label: 'Dizziness' }, { id: 'nausea', label: 'Nausea' }, { id: 'headache', label: 'Headache' },
   ],

@@ -2,34 +2,120 @@
 @tailwind components;
 @tailwind utilities;
 
+@font-face {
+  font-family: Ubuntu;
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/ubuntu-regular.ttf') format('truetype');
+}
+
+@font-face {
+  font-family: Ubuntu;
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('/fonts/ubuntu-bold.ttf') format('truetype');
+}
+
 @layer base {
   :root {
-    --background: 222 47% 6%;
-    --foreground: 210 20% 92%;
-    --card: 222 32% 10%;
-    --card-foreground: 210 20% 92%;
-    --popover: 222 32% 10%;
-    --popover-foreground: 210 20% 92%;
-    --primary: 217 91% 60%;
-    --primary-foreground: 0 0% 100%;
-    --secondary: 217 33% 17%;
-    --secondary-foreground: 210 20% 92%;
-    --muted: 217 33% 17%;
-    --muted-foreground: 215 20% 65%;
-    --accent: 217 91% 60%;
+    --background: 0 0% 4%;
+    --foreground: 0 0% 95%;
+    --card: 0 0% 8%;
+    --card-foreground: 0 0% 95%;
+    --popover: 0 0% 8%;
+    --popover-foreground: 0 0% 95%;
+    --primary: 28 100% 52%;
+    --primary-foreground: 240 6% 10%;
+    --secondary: 0 0% 16%;
+    --secondary-foreground: 0 0% 95%;
+    --muted: 0 0% 16%;
+    --muted-foreground: 0 0% 65%;
+    --accent: 330 81% 54%;
     --accent-foreground: 0 0% 100%;
     --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
     --vital: 0 72% 51%;
-    --amber: 38 92% 50%;
-    --border: 217 33% 20%;
-    --input: 217 33% 20%;
-    --ring: 217 91% 60%;
-    --radius: 0.5rem;
-    --font-heading: ui-sans-serif, system-ui, sans-serif;
-    --font-body: ui-sans-serif, system-ui, sans-serif;
-    --font-display: ui-sans-serif, system-ui, sans-serif;
-    --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    --amber: 330 81% 60%;
+    --border: 0 0% 21%;
+    --input: 0 0% 21%;
+    --ring: 28 100% 58%;
+    --slate-50: 250 250 250;
+    --slate-100: 244 244 245;
+    --slate-200: 228 228 231;
+    --slate-300: 212 212 216;
+    --slate-400: 161 161 170;
+    --slate-500: 113 113 122;
+    --slate-600: 82 82 91;
+    --slate-700: 63 63 70;
+    --slate-800: 39 39 42;
+    --slate-900: 24 24 27;
+    --slate-950: 9 9 11;
+    --blue-50: 255 247 237;
+    --blue-100: 255 237 213;
+    --blue-200: 254 215 170;
+    --blue-300: 255 190 120;
+    --blue-400: 255 158 64;
+    --blue-500: 255 122 0;
+    --blue-600: 197 78 0;
+    --blue-700: 179 71 0;
+    --blue-800: 140 57 7;
+    --blue-900: 92 34 8;
+    --blue-950: 53 19 5;
+    --amber-50: 253 242 248;
+    --amber-100: 252 231 243;
+    --amber-200: 251 207 232;
+    --amber-300: 249 168 212;
+    --amber-400: 244 114 182;
+    --amber-500: 236 72 153;
+    --amber-600: 219 39 119;
+    --amber-700: 190 24 93;
+    --amber-800: 157 23 77;
+    --amber-900: 131 24 67;
+    --amber-950: 80 7 36;
+    --emerald-50: 236 253 245;
+    --emerald-100: 209 250 229;
+    --emerald-200: 167 243 208;
+    --emerald-300: 110 231 183;
+    --emerald-400: 52 211 153;
+    --emerald-500: 16 185 129;
+    --emerald-600: 5 150 105;
+    --emerald-700: 4 120 87;
+    --emerald-800: 6 95 70;
+    --emerald-900: 6 78 59;
+    --emerald-950: 2 44 34;
+    --red-50: 254 242 242;
+    --red-100: 254 226 226;
+    --red-200: 254 202 202;
+    --red-300: 252 165 165;
+    --red-400: 248 113 113;
+    --red-500: 239 68 68;
+    --red-600: 220 38 38;
+    --red-700: 185 28 28;
+    --red-800: 153 27 27;
+    --red-900: 127 29 29;
+    --red-950: 69 10 10;
+    --orange-50: 255 247 237;
+    --orange-100: 255 237 213;
+    --orange-200: 254 215 170;
+    --orange-300: 253 186 116;
+    --orange-400: 251 146 60;
+    --orange-500: 249 115 22;
+    --orange-600: 234 88 12;
+    --orange-700: 194 65 12;
+    --orange-800: 154 52 18;
+    --orange-900: 124 45 18;
+    --orange-950: 67 20 7;
+    --radius: 0.75rem;
+    --font-heading: Ubuntu, sans-serif;
+    --font-body: Ubuntu, sans-serif;
+    --font-display: Ubuntu, sans-serif;
+    --font-mono: Ubuntu, sans-serif;
+  }
+
+  html {
+    color-scheme: dark;
   }
 }
 
@@ -39,15 +125,36 @@
   }
   body {
     @apply bg-background text-foreground font-body antialiased;
+    background-image:
+      radial-gradient(ellipse at 8% 0%, rgb(255 122 0 / 0.18), transparent 34rem),
+      radial-gradient(ellipse at 92% 0%, rgb(236 72 153 / 0.14), transparent 32rem);
   }
 }
 
 @layer components {
-  .panel { @apply rounded-lg border border-slate-800 bg-slate-900; }
-  .panel-glow { box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.3); }
-  .btn-mission { @apply inline-flex items-center justify-center gap-2 rounded-md border border-slate-700 bg-slate-800 px-4 py-2.5 text-sm font-medium text-slate-200 transition hover:bg-slate-700 hover:border-slate-600 active:scale-[0.99] disabled:opacity-50 disabled:pointer-events-none; }
+  .panel {
+    @apply relative rounded-xl border border-slate-800 bg-slate-900;
+    box-shadow: inset 0 1px 0 rgb(255 122 0 / 0.2), inset 1px 0 0 rgb(236 72 153 / 0.08);
+  }
+  .panel::before {
+    position: absolute;
+    top: -1px;
+    left: 1rem;
+    width: 5rem;
+    height: 2px;
+    border-radius: 999px;
+    background: linear-gradient(90deg, #ff7a00, #ec4899);
+    content: "";
+    pointer-events: none;
+  }
+  .panel-glow { box-shadow: 0 1px 18px 0 rgb(255 122 0 / 0.17), 0 0 8px rgb(236 72 153 / 0.09); }
+  .btn-mission { @apply inline-flex items-center justify-center gap-2 rounded-lg border border-slate-700 bg-slate-800 px-4 py-2.5 text-sm font-medium text-slate-200 transition hover:bg-slate-700 hover:border-slate-600 active:scale-[0.99] disabled:opacity-50 disabled:pointer-events-none; }
+  .btn-mission:not(:disabled) {
+    box-shadow: inset 0 1px 0 rgb(255 122 0 / 0.22), inset 1px 0 0 rgb(236 72 153 / 0.12);
+  }
+  .mission-header { box-shadow: 0 1px 0 rgb(255 122 0 / 0.22), 0 3px 18px rgb(236 72 153 / 0.08); }
   .chip { @apply inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-medium; }
-  .grid-bg { background: transparent; }
+  .grid-bg { background-color: hsl(var(--background)); }
   .telemetry-corners { position: relative; }
   .telemetry-corners::before, .telemetry-corners::after { content: none; }
 }

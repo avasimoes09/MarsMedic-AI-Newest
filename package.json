@@ -1,5 +1,5 @@
 {
-  "name": "base44-app",
+  "name": "marsmedic-ai",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -8,7 +8,7 @@
     "dev:web": "vite --host 0.0.0.0",
     "start": "node server/index.js",
     "build": "vite build",
-    "test:api": "node --test server/api.test.js src/lib/vitalGuidance.test.js",
+    "test:api": "node --test server/api.test.js src/lib/vitalGuidance.test.js src/lib/diagnosisEngine.test.js src/lib/temperature.test.js src/hooks/useEnvironmentalDevice.test.js",
     "lint": "eslint . --quiet",
     "lint:fix": "eslint . --fix",
     "typecheck": "tsc -p ./jsconfig.json",

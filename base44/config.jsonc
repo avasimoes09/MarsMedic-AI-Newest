@@ -1,5 +1,5 @@
 {
-  "name": "base44-app",
+  "name": "marsmedic-ai",
   "site": {
     "installCommand": "npm install",
     "buildCommand": "npm run build",

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMission } from '@/lib/MissionContext';
 import PatientHealthFields, { EMPTY_HEALTH_PROFILE } from '@/components/PatientHealthFields';
-import { AlertTriangle, Fingerprint, Loader2, LockKeyhole, Rocket, UserRound } from 'lucide-react';
+import { AlertTriangle, Fingerprint, Loader2, LockKeyhole, UserRound } from 'lucide-react';
 
 const inputClass = 'w-full rounded-md border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm text-slate-100 outline-none focus:border-blue-500';
 
@@ -62,13 +62,13 @@ export default function MarsLogin() {
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-slate-950 px-4 py-10">
       <div className="mb-7 text-center">
-        <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-xl bg-blue-600 text-white"><Rocket className="h-7 w-7" /></div>
+        <img src="/marsmedic.svg" alt="" className="mx-auto mb-4 h-16 w-16 rounded-2xl shadow-lg shadow-black/20" />
         <h1 className="text-2xl font-bold text-slate-100">MarsMedic AI</h1>
         <p className="mt-1 text-sm text-slate-400">Local patient health records</p>
       </div>
 
       <div className="w-full max-w-xl">
-        <button onClick={() => navigate('/emergency')} className="mb-4 flex w-full items-center justify-center gap-2 rounded-md border border-red-700 bg-red-950/60 px-4 py-3 text-sm font-semibold text-red-200 hover:bg-red-900/60">
+        <button onClick={() => navigate('/emergency')} className="mb-4 flex w-full items-center justify-center gap-2 rounded-md border border-red-700 bg-red-600 px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-red-700">
           <AlertTriangle className="h-4 w-4" /> Emergency assessment
         </button>
         <div className="mb-4 grid grid-cols-2 rounded-md border border-slate-800 bg-slate-900 p-1" role="tablist" aria-label="Account access">

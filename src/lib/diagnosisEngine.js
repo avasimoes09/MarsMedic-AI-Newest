@@ -1,5 +1,5 @@
-import { SYMPTOMS } from '@/lib/missionData';
-import { FOLLOWUP_BONUSES } from '@/lib/followupQuestions';
+import { SYMPTOMS } from './missionData.js';
+import { FOLLOWUP_BONUSES } from './followupQuestions.js';
 
 const SYMPTOM_LABELS = {};
 Object.values(SYMPTOMS).forEach((arr) => arr.forEach((s) => { SYMPTOM_LABELS[s.id] = s.label; }));
@@ -169,12 +169,133 @@ export const DIAGNOSIS_RULES = [
 
 const EMERGENCY_SYMPTOMS = ['difficulty_speaking', 'neck_stiffness', 'disorientation', 'blood_in_urine'];
 
-export function runDiagnosis(symptomIds, followups = {}) {
+const MEDICAL_HISTORY_LINKS = [
+  { pattern: /\b(?:hypertension|high blood pressure)\b/i, label: 'Hypertension', diagnosisIds: ['hypertension_headache', 'heart_attack', 'stroke'] },
+  { pattern: /\b(?:asthma|bronchospasm)\b/i, label: 'Asthma', diagnosisIds: ['asthma'] },
+  { pattern: /\b(?:diabetes|diabetic)\b/i, label: 'Diabetes', diagnosisIds: ['dehydration', 'delirium', 's_weakness', 's_fatigue'] },
+  { pattern: /\b(?:heart disease|coronary artery|cardiac disease|previous heart attack|heart attack)\b/i, label: 'Heart disease', diagnosisIds: ['heart_attack', 's_chest_pain', 's_palpitations'] },
+  { pattern: /\b(?:kidney disease|renal disease|kidney stones?)\b/i, label: 'Kidney disease or stones', diagnosisIds: ['kidney_stones', 'uti', 's_flank_pain'] },
+  { pattern: /\b(?:blood clot|thrombosis|deep vein thrombosis|dvt|pulmonary embolism)\b/i, label: 'Clotting history', diagnosisIds: ['pulmonary_embolism', 's_leg_swelling'] },
+  { pattern: /\b(?:migraine|recurrent headaches?)\b/i, label: 'Migraine or recurrent headaches', diagnosisIds: ['s_headache', 'hypertension_headache'] },
+];
+
+function describeRecordText(value) {
+  return typeof value === 'string' ? value.trim().slice(0, 2000) : '';
+}
+
+function numericRecordValue(value) {
+  if (value === null || value === undefined || value === '') return NaN;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : NaN;
+}
+
+function hasAffirmedHistory(pattern, text) {
+  const matcher = new RegExp(pattern.source, `${pattern.flags}g`);
+  for (const match of text.matchAll(matcher)) {
+    const precedingText = text.slice(Math.max(0, match.index - 50), match.index);
+    if (/\bfamily history of\s*$/i.test(precedingText)) continue;
+    if (!/\b(?:no|not|denies|without|negative for)(?:\s+history of)?\s+(?:the\s+)?$/i.test(precedingText)) return true;
+  }
+  return false;
+}
+
+export function getMedicalHistoryContext(record = {}) {
+  const conditions = Array.isArray(record.conditions) ? record.conditions : [];
+  const conditionText = conditions.map((condition) => (
+    typeof condition === 'string' ? condition : `${condition?.id || ''} ${condition?.name || ''}`
+  )).filter(Boolean);
+  const sessionHistory = (Array.isArray(record.medicalHistoryEntries) ? record.medicalHistoryEntries : [])
+    .flatMap((entry) => Array.isArray(entry?.entries) ? entry.entries : [])
+    .filter((entry) => entry?.type === 'Assessment')
+    .map((entry) => describeRecordText(entry.details))
+    .filter(Boolean);
+  const historyText = [
+    ...conditionText,
+    describeRecordText(record.medicalHistory),
+    describeRecordText(record.notes),
+    ...sessionHistory,
+  ].filter(Boolean).join(' ');
+  const factors = MEDICAL_HISTORY_LINKS
+    .filter((item) => hasAffirmedHistory(item.pattern, historyText))
+    .map(({ label, diagnosisIds }) => ({ label, diagnosisIds, bonus: 6 }));
+  for (const condition of conditions) {
+    const id = typeof condition === 'string' ? condition : condition?.id;
+    const rule = DIAGNOSIS_RULES.find((item) => item.id === id);
+    if (rule && !factors.some((factor) => factor.diagnosisIds.includes(id))) {
+      factors.push({
+        label: `Previous diagnosis: ${typeof condition === 'string' ? rule.name : condition.name || rule.name}`,
+        diagnosisIds: [id],
+        bonus: 6,
+      });
+    }
+  }
+
+  const temperature = numericRecordValue(record.temperature);
+  const heartRate = numericRecordValue(record.heartRate);
+  const oxygen = numericRecordValue(record.oxygenSaturation);
+  const respiratoryRate = numericRecordValue(record.respiratoryRate);
+  const bloodPressure = describeRecordText(record.bloodPressure).match(/^\s*(\d{2,3})\s*\/\s*(\d{2,3})\s*$/);
+  const systolic = bloodPressure ? Number(bloodPressure[1]) : NaN;
+  const diastolic = bloodPressure ? Number(bloodPressure[2]) : NaN;
+  const addVitalFactor = (label, diagnosisIds) => factors.push({
+    label: `Recorded vital: ${label}`,
+    diagnosisIds,
+    bonus: 4,
+  });
+
+  if (Number.isFinite(temperature) && temperature >= 38) {
+    addVitalFactor('elevated temperature', ['pneumonia', 'meningitis', 'abdominal_infection']);
+  } else if (Number.isFinite(temperature) && temperature < 35) {
+    addVitalFactor('low temperature', ['s_cold_sweats', 'delirium', 's_weakness']);
+  }
+  if (Number.isFinite(heartRate) && heartRate > 100) {
+    addVitalFactor('fast heart rate', ['heart_attack', 's_palpitations', 's_sob', 'vasovagal']);
+  } else if (Number.isFinite(heartRate) && heartRate < 50) {
+    addVitalFactor('slow heart rate', ['s_palpitations', 'vasovagal', 's_dizziness']);
+  }
+  if (Number.isFinite(oxygen) && oxygen < 95) {
+    addVitalFactor('low oxygen saturation', ['pulmonary_embolism', 'pneumonia', 'asthma', 'heart_attack', 's_sob']);
+  }
+  if (Number.isFinite(systolic) && Number.isFinite(diastolic)) {
+    if (systolic >= 180 || diastolic >= 120) {
+      addVitalFactor('very high blood pressure', ['hypertension_headache', 'stroke', 'heart_attack']);
+    } else if (systolic < 90) {
+      addVitalFactor('low blood pressure', ['vasovagal', 'dehydration', 's_dizziness']);
+    }
+  }
+  if (Number.isFinite(respiratoryRate) && respiratoryRate >= 22) {
+    addVitalFactor('fast breathing rate', ['pulmonary_embolism', 'pneumonia', 'asthma', 's_sob']);
+  }
+
+  return {
+    factors,
+    allergies: describeRecordText(record.allergies),
+    medications: describeRecordText(record.medications),
+    conditions: conditionText.map((condition) => condition.trim().slice(0, 200)).filter(Boolean),
+    historyRecorded: Boolean(
+      describeRecordText(record.medicalHistory)
+      || describeRecordText(record.notes)
+      || conditionText.length
+      || sessionHistory.length,
+    ),
+  };
+}
+
+export function runDiagnosis(symptomIds, followups = {}, patientRecord = {}) {
+  const medicalHistory = getMedicalHistoryContext(patientRecord);
   const base = DIAGNOSIS_RULES.map((r) => {
     const matched = r.requires.filter((s) => symptomIds.includes(s));
     const ratio = matched.length / r.requires.length;
     const conf = r.confidence * (0.7 + 0.3 * ratio);
-    return { ...r, matched, ratio, confidence: Math.round(conf) };
+    const historyFactors = medicalHistory.factors.filter((factor) => factor.diagnosisIds.includes(r.id));
+    return {
+      ...r,
+      matched,
+      ratio,
+      confidence: Math.round(conf),
+      historyFactors,
+      historyBonus: Math.min(12, historyFactors.reduce((sum, factor) => sum + factor.bonus, 0)),
+    };
   });
 
   // Apply follow-up answer bonuses to refine confidence among candidates
@@ -186,14 +307,22 @@ export function runDiagnosis(symptomIds, followups = {}) {
   });
   const scored = base.map((r) => ({
     ...r,
-    confidence: Math.min(95, Math.round(r.confidence + (bonuses[r.id] || 0))),
+    confidence: Math.min(95, Math.round(r.confidence + (bonuses[r.id] || 0) + r.historyBonus)),
   }));
 
   // threshold lowered to 1 so single-symptom rules can match
   const threshold = (r) => Math.max(1, Math.ceil(r.requires.length * 0.6));
   const results = scored
     .filter((r) => r.matched.length >= threshold(r))
-    .map((r) => ({ ...r, evidence: r.matched.map((id) => SYMPTOM_LABELS[id] || id) }))
+    .map((r) => ({
+      ...r,
+      evidence: [
+        ...r.matched.map((id) => SYMPTOM_LABELS[id] || id),
+        ...r.historyFactors.map((factor) => factor.label.startsWith('Recorded vital:')
+          ? factor.label
+          : `Relevant patient history: ${factor.label}`),
+      ],
+    }))
     .sort((a, b) => b.confidence - a.confidence);
   const rejected = scored
     .filter((r) => r.matched.length < threshold(r) && r.matched.length > 0)
@@ -220,8 +349,9 @@ export function runDiagnosis(symptomIds, followups = {}) {
         ],
       }],
       rejected: rejected.length ? rejected : [],
+      medicalHistory,
     };
   }
 
-  return { results, rejected: rejected.length ? rejected : [] };
+  return { results, rejected: rejected.length ? rejected : [], medicalHistory };
 }
