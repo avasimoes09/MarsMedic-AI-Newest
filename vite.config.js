@@ -13,10 +13,11 @@ if (lanHost && (!tlsCertPath || !tlsKeyPath)) {
 }
 
 // https://vite.dev/config/
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
   plugins: [
     react(),
     VitePWA({
+      disable: mode === 'desktop',
       registerType: 'autoUpdate',
       includeAssets: ['marsmedic.svg'],
       manifest: {
@@ -62,4 +63,4 @@ export default defineConfig({
       },
     },
   },
-});
+}));

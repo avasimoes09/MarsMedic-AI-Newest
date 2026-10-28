@@ -93,9 +93,34 @@ test('local accounts isolate records, change PINs, log sessions, and offer passk
     assert.equal(optionsResponse.status, 200);
     const options = await optionsResponse.json();
     assert.ok(options.challenge);
-    assert.equal(options.authenticatorSelection.authenticatorAttachment, undefined);
+    assert.equal(options.authenticatorSelection.authenticatorAttachment, 'platform');
     assert.equal(options.authenticatorSelection.residentKey, 'preferred');
     assert.equal(options.authenticatorSelection.userVerification, 'required');
+
+    const localhostOptionsResponse = await fetch(`${origin}/api/passkeys/register/options`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Cookie: firstCookie,
+        Origin: `http://localhost:${port}`,
+      },
+      body: JSON.stringify({ externalOnly: false }),
+    });
+    assert.equal(localhostOptionsResponse.status, 200);
+    assert.equal((await localhostOptionsResponse.json()).rp.id, 'localhost');
+
+    const codespacesOrigin = 'https://marsmedic-test-5173.app.github.dev';
+    const codespacesOptionsResponse = await fetch(`${origin}/api/passkeys/register/options`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Cookie: firstCookie,
+        Origin: codespacesOrigin,
+      },
+      body: JSON.stringify({ externalOnly: false }),
+    });
+    assert.equal(codespacesOptionsResponse.status, 200);
+    assert.equal((await codespacesOptionsResponse.json()).rp.id, 'marsmedic-test-5173.app.github.dev');
 
     const externalOptionsResponse = await request('/api/passkeys/register/options', 'POST', { externalOnly: true }, firstCookie);
     assert.equal(externalOptionsResponse.status, 200);

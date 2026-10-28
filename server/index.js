@@ -4,6 +4,7 @@ import http from 'node:http';
 import https from 'node:https';
 import { isIP } from 'node:net';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import {
   generateAuthenticationOptions,
   generateRegistrationOptions,
@@ -22,7 +23,7 @@ import {
   verifyPin,
 } from './secureStore.js';
 
-const PORT = Number(process.env.API_PORT || 8787);
+const PORT = process.env.API_PORT === '0' ? 0 : Number(process.env.API_PORT || 8787);
 const LAN_HOST = process.env.LAN_HOST?.trim().toLowerCase();
 const HOST = (process.env.API_HOST || '127.0.0.1').toLowerCase();
 const LOOPBACK_HOSTS = ['localhost', '127.0.0.1', '::1'];
@@ -58,7 +59,7 @@ const profileFields = [
 ];
 const mimeTypes = {
   '.css': 'text/css', '.html': 'text/html', '.js': 'text/javascript',
-  '.json': 'application/json', '.svg': 'image/svg+xml',
+  '.json': 'application/json', '.svg': 'image/svg+xml', '.ttf': 'font/ttf',
   '.webmanifest': 'application/manifest+json', '.woff2': 'font/woff2',
 };
 
@@ -194,7 +195,7 @@ function contentType(filePath) {
 }
 
 function serveStatic(request, response) {
-  const root = path.resolve('dist');
+  const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../dist');
   if (!existsSync(path.join(root, 'index.html'))) return json(response, 503, { error: 'Build the app first with npm run build.' });
   const pathname = decodeURIComponent(new URL(request.url, 'http://localhost').pathname);
   const requested = path.resolve(root, `.${pathname}`);
@@ -202,7 +203,11 @@ function serveStatic(request, response) {
   const filePath = isSafeFile
     ? requested
     : path.join(root, 'index.html');
-  response.writeHead(200, { 'Content-Type': contentType(filePath), 'X-Content-Type-Options': 'nosniff' });
+  response.writeHead(200, {
+    'Content-Type': contentType(filePath),
+    'X-Content-Type-Options': 'nosniff',
+    ...(path.extname(filePath) === '.zip' ? { 'Content-Disposition': `attachment; filename="${path.basename(filePath)}"` } : {}),
+  });
   createReadStream(filePath).pipe(response);
 }
 
@@ -348,7 +353,7 @@ async function handle(request, response) {
         userDisplayName: auth.patient.name,
         attestationType: 'none',
         authenticatorSelection: {
-          ...(body.externalOnly === true ? { authenticatorAttachment: 'cross-platform' } : {}),
+          authenticatorAttachment: body.externalOnly === true ? 'cross-platform' : 'platform',
           residentKey: 'preferred',
           userVerification: 'required',
         },
@@ -441,6 +446,7 @@ export const server = createServer((request, response) => {
     else response.destroy();
   });
 });
+export { database };
 
 const protocol = tlsOptions ? 'https' : 'http';
 server.listen(PORT, HOST, () => console.log(`MarsMedic local service listening at ${protocol}://${HOST}:${PORT}`));

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useMission } from '@/lib/MissionContext';
 import PatientHealthFields, { EMPTY_HEALTH_PROFILE } from '@/components/PatientHealthFields';
 import PageHeader from '@/components/PageHeader';
@@ -10,11 +10,13 @@ const inputClass = 'w-full max-w-xs rounded-md border border-slate-700 bg-slate-
 export default function CrewSelection() {
   const { patient, updateProfile, changePin, registerPasskey, isGuest } = useMission();
   const navigate = useNavigate();
+  const location = useLocation();
   const [profile, setProfile] = useState({ ...EMPTY_HEALTH_PROFILE });
   const [currentPin, setCurrentPin] = useState('');
   const [newPin, setNewPin] = useState('');
   const [confirmPin, setConfirmPin] = useState('');
   const [message, setMessage] = useState('');
+  const [setupWarning, setSetupWarning] = useState(location.state?.passkeySetupError || '');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
 
@@ -33,6 +35,7 @@ export default function CrewSelection() {
     event.preventDefault();
     setBusy(true);
     setMessage('');
+    setSetupWarning('');
     setError('');
     try {
       await updateProfile({ ...profile, name: profile.name });
@@ -112,21 +115,22 @@ export default function CrewSelection() {
 
           <div className="panel p-5">
             <h2 className="mb-2 text-base font-semibold text-slate-100">Fingerprint sign-in</h2>
-            <p className="mb-4 text-xs text-slate-400">Register a VeriMark USB key or this device’s built-in biometric. Fingerprint verification stays on the authenticator.</p>
+            <p className="mb-4 text-xs text-slate-400">Use Windows Hello to register this computer’s fingerprint authenticator, including a VeriMark sensor enrolled in Windows Hello. The fingerprint stays on the device.</p>
             {patient.hasPasskey && <p className="mb-3 text-xs text-emerald-400">A passkey is registered. You can add another reader or device.</p>}
             <div className="flex flex-wrap gap-2">
-              <button type="button" onClick={() => addPasskey(true)} disabled={busy} className="btn-mission">
-                {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Fingerprint className="h-4 w-4" />}
-                Set up VeriMark key
-              </button>
               <button type="button" onClick={() => addPasskey(false)} disabled={busy} className="btn-mission">
                 {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Fingerprint className="h-4 w-4" />}
-                {patient.hasPasskey ? 'Add device passkey' : 'Use this device'}
+                Set up Windows Hello fingerprint
+              </button>
+              <button type="button" onClick={() => addPasskey(true)} disabled={busy} className="btn-mission">
+                {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Fingerprint className="h-4 w-4" />}
+                Add external FIDO2 security key
               </button>
             </div>
           </div>
         </div>
       </div>
+      {setupWarning && <p role="alert" className="mt-4 text-sm text-red-400">Account created, but Windows Hello setup was not completed: {setupWarning}</p>}
       {message && <p role="status" className="mt-4 text-sm text-emerald-400">{message}</p>}
       {error && <p role="alert" className="mt-4 text-sm text-red-400">{error}</p>}
     </div>

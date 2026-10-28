@@ -24,14 +24,19 @@ export default function MarsLogin() {
   const [mode, setMode] = useState('login');
   const [name, setName] = useState('');
   const [pin, setPin] = useState('');
-  const [useExternalKey, setUseExternalKey] = useState(false);
   const [health, setHealth] = useState(EMPTY_HEALTH_PROFILE);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const [profileAfterCreate, setProfileAfterCreate] = useState(false);
 
   useEffect(() => {
-    if (session) navigate('/dashboard', { replace: true });
-  }, [session, navigate]);
+    if (session) {
+      navigate(profileAfterCreate ? '/crew' : '/dashboard', {
+        replace: true,
+        state: profileAfterCreate ? { passkeySetupError: error } : undefined,
+      });
+    }
+  }, [session, profileAfterCreate, error, navigate]);
 
   const updateHealth = (key, value) => setHealth((current) => ({ ...current, [key]: value }));
   const enterGuest = async () => {
@@ -45,10 +50,10 @@ export default function MarsLogin() {
     setBusy(true);
     try {
       if (mode === 'create') {
-        const result = await createAccount({ name, pin, ...health }, { externalOnly: useExternalKey });
+        const result = await createAccount({ name, pin, ...health });
         if (result.fingerprintSetupFailed) {
-          setMode('login');
-          setError(`Account created, but fingerprint setup was not completed. Sign in with your PIN, then add a device passkey from My Patient Profile. ${result.error?.message || ''}`.trim());
+          setProfileAfterCreate(true);
+          setError(`Account created and signed in, but Windows Hello setup was not completed. ${result.error?.message || ''}`.trim());
         }
       } else {
         await loginWithPin(pin);
@@ -134,11 +139,7 @@ export default function MarsLogin() {
               <h3 className="mb-3 text-sm font-semibold text-slate-100">Health information</h3>
               <PatientHealthFields value={health} onChange={updateHealth} />
             </div>
-            <label className="flex items-start gap-2 text-sm text-slate-300">
-              <input type="checkbox" checked={useExternalKey} onChange={(event) => setUseExternalKey(event.target.checked)} className="mt-0.5 accent-orange-500" />
-              <span>Set up an external FIDO2 key, such as VeriMark</span>
-            </label>
-            <p className="text-xs text-slate-500">Fingerprint verification stays on the authenticator; MarsMedic stores only the passkey credential.</p>
+            <p className="text-xs text-slate-500">Account creation will ask Windows Hello to set up fingerprint sign-in. Your fingerprint stays on the computer; MarsMedic stores only the passkey credential.</p>
             <p className="text-xs text-slate-500">This account is stored on this computer. The PIN is hashed and health details are encrypted locally. Back up the database and its separate encryption key together.</p>
             {error && <p role="alert" className="text-sm text-red-400">{error}</p>}
             <button type="submit" disabled={busy} className="btn-mission w-full py-3">

@@ -15,6 +15,7 @@ node_modules
 dist
 dist-ssr
 dev-dist
+release
 data
 *.local
 

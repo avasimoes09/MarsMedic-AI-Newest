@@ -4,11 +4,34 @@ MarsMedic AI is a standalone local app. It does not use Base44 or require a host
 
 The Devices page includes vital-sign and environmental BLE tabs. Environmental readings are available from compatible Bluetooth Environmental Sensing Service sensors; unsupported or missing sensor values are left blank. Temperature units can be switched between Celsius and Fahrenheit in the UI, while stored values and clinical thresholds remain in Celsius.
 
-Connected BLE readings are shown live and are not uploaded or automatically recorded. Signed-in patients can explicitly save real vital-sign or environmental sensor readings to their encrypted local patient record from the Devices page. Simulated readings are never saved. Fingerprint sign-in uses WebAuthn/FIDO2 passkeys; an external fingerprint key must support user-verified passkeys. The fingerprint itself is verified by the device and is not sent to MarsMedic.
+Connected BLE readings are shown live and are not uploaded or automatically recorded. Signed-in patients can explicitly save real vital-sign or environmental sensor readings to their encrypted local patient record from the Devices page. Simulated readings are never saved. Fingerprint sign-in uses WebAuthn passkeys: account creation and the profile page register Windows Hello platform authentication, including a VeriMark sensor enrolled with Windows Hello. A separate profile action is available for external FIDO2 security keys. Fingerprint verification stays on the authenticator; MarsMedic stores only the passkey credential.
 
 Use the Light/Dark controls at the top-right of the app to change appearance. The selected theme is saved on the current device.
 
 The local service must be running whenever the app is used. Use Node.js 24 or newer. The database is stored in `data/marsmedic.sqlite`; its encryption key is stored separately at `~/.marsmedic-ai/health-data.key`. Back up both securely together. Losing the key makes encrypted health records unrecoverable. This local prototype has no remote backup or account recovery service and is not a certified clinical records system.
+
+## Windows Desktop App
+
+The Windows desktop build opens MarsMedic in its own app window, starts the API locally, and keeps the encrypted database and key under the current Windows user's app-data folder. It does not need Codespaces, a separate browser, or internet access after installation. WebAuthn passkeys use the local `localhost` origin, so Windows Hello and compatible FIDO2 keys can be registered from the desktop app.
+
+To create a Windows installer from a development checkout with Node.js 24 or newer:
+
+```bash
+npm install
+npm run desktop:win
+```
+
+The installer is written to `release/MarsMedic-AI-Setup-0.0.0.exe`. Install and launch **MarsMedic AI** from the Start menu. Keep the database and `health-data.key` together in `%APPDATA%\MarsMedic AI`; back up both securely. Losing the key makes encrypted health records unrecoverable. The desktop app blocks requests to non-local origins.
+
+On non-Windows build hosts, create an unpacked Windows app folder instead:
+
+```bash
+npm run desktop:win:dir
+```
+
+Copy the complete `release/win-unpacked` folder to Windows and launch `MarsMedic AI.exe`. Create the NSIS installer on Windows with `npm run desktop:win`.
+
+For development, `npm run desktop` builds and launches the app window on the current computer.
 
 ## Run Locally and Offline
 
@@ -28,7 +51,7 @@ npm run dev
 
 This starts both the local SQLite/API service on `127.0.0.1:8787` and the Vite development server, usually at `http://127.0.0.1:5173`. Account sign-in and records need the local service to be running; they do not need internet access. The production-style `npm start` server is the intended way to run the built app offline.
 
-For a future packaged offline app, package the built frontend together with the local Node.js service and its dependencies. Keep the database and encryption key in the app's writable local data locations; do not package or share a live database key with the app bundle.
+The desktop installer bundles the built frontend, local service, and runtime dependencies. The traditional `npm start` mode remains available for running in a separate browser.
 
 ## Optional: Share on a Local Network
 

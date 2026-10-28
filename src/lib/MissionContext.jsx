@@ -7,6 +7,15 @@ export const useMission = () => useContext(MissionContext);
 
 const SEVERITY_PENALTY = { EMERGENCY: 30, HIGH: 20, MEDIUM: 10, LOW: 4 };
 
+function validatePasskeyRpId(options) {
+  const rpId = options.rp?.id || options.rpId;
+  if (rpId !== window.location.hostname) {
+    throw new Error(
+      `Passkey origin mismatch: this app is open at "${window.location.origin}", but the local service returned RP ID "${rpId || 'missing'}". Close the browser/Codespaces page and launch MarsMedic AI.exe directly.`,
+    );
+  }
+}
+
 export function MissionProvider({ children }) {
   const [session, setSession] = useState(null);
   const [patient, setPatient] = useState(null);
@@ -68,10 +77,11 @@ export function MissionProvider({ children }) {
     notifyAuthChange();
   }, [notifyAuthChange]);
 
-  const createAccount = useCallback(async (details, { externalOnly = false } = {}) => {
+  const createAccount = useCallback(async (details) => {
     const result = await localApi('/auth/register', { method: 'POST', body: details });
     try {
-      const options = await localApi('/passkeys/register/options', { method: 'POST', body: { externalOnly } });
+      const options = await localApi('/passkeys/register/options', { method: 'POST', body: { externalOnly: false } });
+      validatePasskeyRpId(options);
       const response = await startRegistration({ optionsJSON: options });
       await localApi('/passkeys/register/verify', {
         method: 'POST',
@@ -79,9 +89,7 @@ export function MissionProvider({ children }) {
       });
       result.profile.hasPasskey = true;
     } catch (error) {
-      try {
-        await localApi('/auth/logout', { method: 'POST', body: { entries: [] } });
-      } catch { /* The PIN sign-in remains available if cleanup fails. */ }
+      setPatientSession(result);
       return { fingerprintSetupFailed: true, error };
     }
     setPatientSession(result);
@@ -95,6 +103,7 @@ export function MissionProvider({ children }) {
 
   const loginWithPasskey = useCallback(async () => {
     const options = await localApi('/passkeys/login/options', { method: 'POST', body: {} });
+    validatePasskeyRpId(options);
     const response = await startAuthentication({ optionsJSON: options });
     const result = await localApi('/passkeys/login/verify', {
       method: 'POST',
@@ -105,6 +114,7 @@ export function MissionProvider({ children }) {
 
   const registerPasskey = useCallback(async ({ externalOnly = false } = {}) => {
     const options = await localApi('/passkeys/register/options', { method: 'POST', body: { externalOnly } });
+    validatePasskeyRpId(options);
     const response = await startRegistration({ optionsJSON: options });
     await localApi('/passkeys/register/verify', {
       method: 'POST',

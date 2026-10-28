@@ -8,6 +8,9 @@
     "dev:web": "vite --host 0.0.0.0",
     "start": "node server/index.js",
     "build": "vite build",
+    "desktop": "npm run build -- --mode desktop && electron .",
+    "desktop:win": "npm run build -- --mode desktop && electron-builder --win nsis",
+    "desktop:win:dir": "npm run build -- --mode desktop && electron-builder --win dir",
     "test:api": "node --test server/api.test.js src/lib/vitalGuidance.test.js src/lib/diagnosisEngine.test.js src/lib/temperature.test.js src/hooks/useEnvironmentalDevice.test.js",
     "lint": "eslint . --quiet",
     "lint:fix": "eslint . --fix",
@@ -89,6 +92,8 @@
     "@vitejs/plugin-react": "^6.0.5",
     "autoprefixer": "^10.4.20",
     "baseline-browser-mapping": "^2.8.32",
+    "electron": "^40.10.6",
+    "electron-builder": "^26.18.0",
     "eslint": "^9.19.0",
     "eslint-plugin-react": "^7.37.4",
     "eslint-plugin-react-hooks": "^5.0.0",
@@ -101,5 +106,25 @@
     "typescript": "^5.8.2",
     "vite": "^8.2.0",
     "vite-plugin-pwa": "^2.0.0"
+  },
+  "main": "desktop/main.cjs",
+  "build": {
+    "appId": "ai.marsmedic.desktop",
+    "productName": "MarsMedic AI",
+    "directories": {
+      "output": "release"
+    },
+    "win": {
+      "target": "nsis",
+      "artifactName": "MarsMedic-AI-Setup-${version}.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true
+    }
+  },
+  "allowScripts": {
+    "electron@40.10.6": true
   }
 }
