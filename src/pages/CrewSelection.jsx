@@ -64,13 +64,13 @@ export default function CrewSelection() {
     }
   };
 
-  const addPasskey = async () => {
+  const addPasskey = async (externalOnly = false) => {
     setBusy(true);
     setMessage('');
     setError('');
     try {
-      await registerPasskey();
-      setMessage('Device passkey added.');
+      await registerPasskey({ externalOnly });
+      setMessage(externalOnly ? 'External security key added.' : 'Device passkey added.');
     } catch (requestError) {
       setError(requestError.message);
     } finally {
@@ -82,7 +82,7 @@ export default function CrewSelection() {
 
   return (
     <div>
-      <PageHeader title="My Patient Profile" subtitle={patient.username} icon={KeyRound} />
+      <PageHeader title="My Patient Profile" subtitle={patient.name} icon={KeyRound} />
       <div className="grid gap-4 lg:grid-cols-[1.5fr_1fr]">
         <form onSubmit={saveProfile} className="panel panel-glow space-y-4 p-5">
           <h2 className="text-base font-semibold text-slate-100">Health information</h2>
@@ -111,13 +111,19 @@ export default function CrewSelection() {
           </form>
 
           <div className="panel p-5">
-            <h2 className="mb-2 text-base font-semibold text-slate-100">Device passkey</h2>
-            <p className="mb-4 text-xs text-slate-400">Use this device’s passkey verification (biometric or device PIN) to sign in without your account PIN.</p>
-            {patient.hasPasskey && <p className="mb-3 text-xs text-emerald-400">A passkey is registered for this account.</p>}
-            <button type="button" onClick={addPasskey} disabled={busy} className="btn-mission">
-              {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Fingerprint className="h-4 w-4" />}
-              Add device passkey
-            </button>
+            <h2 className="mb-2 text-base font-semibold text-slate-100">Fingerprint sign-in</h2>
+            <p className="mb-4 text-xs text-slate-400">Register a VeriMark USB key or this device’s built-in biometric. Fingerprint verification stays on the authenticator.</p>
+            {patient.hasPasskey && <p className="mb-3 text-xs text-emerald-400">A passkey is registered. You can add another reader or device.</p>}
+            <div className="flex flex-wrap gap-2">
+              <button type="button" onClick={() => addPasskey(true)} disabled={busy} className="btn-mission">
+                {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Fingerprint className="h-4 w-4" />}
+                Set up VeriMark key
+              </button>
+              <button type="button" onClick={() => addPasskey(false)} disabled={busy} className="btn-mission">
+                {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Fingerprint className="h-4 w-4" />}
+                {patient.hasPasskey ? 'Add device passkey' : 'Use this device'}
+              </button>
+            </div>
           </div>
         </div>
       </div>

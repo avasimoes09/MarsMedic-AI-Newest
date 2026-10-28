@@ -55,6 +55,27 @@ export default function DigitalTwin() {
           </div>
         </div>
       )}
+      <div className="panel panel-glow mb-4 p-4">
+        <div className="mb-3 text-sm font-semibold text-slate-100">Saved device readings</div>
+        {crew.deviceReadings?.length ? (
+          <ul className="space-y-3">
+            {[...crew.deviceReadings].reverse().slice(0, 20).map((reading, index) => (
+              <li key={`${reading.recordedAt}-${index}`} className="border-b border-slate-800 pb-3 last:border-0 last:pb-0">
+                <div className="text-xs text-slate-400">
+                  {reading.type === 'environmental' ? 'Environmental sensor' : 'Vital-sign device'} · {reading.source} · {new Date(reading.recordedAt).toLocaleString()}
+                </div>
+                <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-sm text-slate-200">
+                  {Object.entries(reading.readings || {}).map(([key, value]) => (
+                    <span key={key}>{key}: {value}{key === 'hr' ? ' bpm' : key === 'spo2' || key === 'humidity' ? '%' : key === 'bpSys' || key === 'bpDia' ? ' mmHg' : key === 'temp' || key === 'temperatureC' ? ' °C' : key === 'pressureKpa' ? ' kPa' : key === 'co2Ppm' ? ' ppm' : ''}</span>
+                  ))}
+                </div>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <div className="text-sm text-slate-400">No device readings have been saved.</div>
+        )}
+      </div>
       <div className="grid gap-3 sm:grid-cols-2">
         {fields.map(([label, value]) => <HealthField key={label} label={label} value={value} />)}
       </div>

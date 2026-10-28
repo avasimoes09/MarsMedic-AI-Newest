@@ -1,17 +1,13 @@
-import { Outlet, useNavigate, Navigate } from 'react-router-dom';
+import { Outlet, useNavigate, Navigate, NavLink } from 'react-router-dom';
 import { useMission } from '@/lib/MissionContext';
 import MissionClock from './MissionClock';
-import { Home, Radio, Stethoscope, HeartPulse, Boxes, FileText, Bluetooth, LogOut, Moon, Loader2 } from 'lucide-react';
+import { Home, Stethoscope, Boxes, Bluetooth, LogOut, Loader2, BatteryCharging, FileText } from 'lucide-react';
 
-const NAV = [
-  { to: '/dashboard', label: 'Bridge', icon: Home },
+const BASE_NAV = [
+  { to: '/dashboard', label: 'Home', icon: Home },
   { to: '/devices', label: 'Devices', icon: Bluetooth },
-  { to: '/twin', label: 'Patient Health Record', icon: HeartPulse },
-  { to: '/wellness', label: 'Wellness', icon: Moon },
-  { to: '/assessment', label: 'Assess', icon: Stethoscope },
   { to: '/inventory', label: 'Inventory', icon: Boxes },
-  { to: '/earth-alert', label: 'Earth Alert', icon: Radio },
-  { to: '/commander', label: 'Patient Records', icon: FileText },
+  { to: '/assessment', label: 'Assess', icon: Stethoscope },
 ];
 
 export default function MissionShell() {
@@ -21,6 +17,11 @@ export default function MissionShell() {
   if (!session) return <Navigate to="/" replace />;
   if (!isGuest && !crew) return <Navigate to="/crew" replace />;
 
+  const nav = [
+    ...BASE_NAV,
+    { to: '/wellness', label: 'Energy', icon: BatteryCharging },
+    ...(!isGuest ? [{ to: '/commander', label: 'Patient Records', icon: FileText }] : []),
+  ];
   const switchCrew = () => navigate('/crew');
   const exitToLogin = async () => {
     await logout();
@@ -63,18 +64,18 @@ export default function MissionShell() {
             )}
           </div>
         </div>
-        <nav className="flex gap-1 overflow-x-auto px-3 pb-2">
-          {NAV.map((n) => {
+        <nav className={`grid w-full gap-1 px-3 pb-2 ${isGuest ? 'grid-cols-3 sm:grid-cols-5' : 'grid-cols-3 sm:grid-cols-6'}`}>
+          {nav.map((n) => {
             const I = n.icon;
             return (
-              <button key={n.to} onClick={() => navigate(n.to)} className="flex items-center gap-1.5 whitespace-nowrap rounded-md px-3 py-1.5 text-xs font-medium text-slate-400 transition hover:bg-slate-800 hover:text-slate-100">
+              <NavLink key={n.to} to={n.to} end={n.to === '/dashboard'} className={({ isActive }) => `flex w-full items-center justify-center gap-1.5 whitespace-nowrap border-b-2 px-2 py-2 text-xs font-medium transition ${isActive ? 'border-cyan-400 text-cyan-200' : 'border-transparent text-slate-400 hover:bg-slate-800 hover:text-slate-100'}`}>
                 <I className="h-3.5 w-3.5" />{n.label}
-              </button>
+              </NavLink>
             );
           })}
         </nav>
       </header>
-      <main className="mx-auto max-w-6xl px-4 py-6">
+      <main className="mx-auto max-w-screen-2xl px-4 py-6">
         <Outlet />
       </main>
 

@@ -4,6 +4,8 @@ MarsMedic AI is a standalone local app. It does not use Base44 or require a host
 
 The Devices page includes vital-sign and environmental BLE tabs. Environmental readings are available from compatible Bluetooth Environmental Sensing Service sensors; unsupported or missing sensor values are left blank. Temperature units can be switched between Celsius and Fahrenheit in the UI, while stored values and clinical thresholds remain in Celsius.
 
+Connected BLE readings are shown live and are not uploaded or automatically recorded. Signed-in patients can explicitly save real vital-sign or environmental sensor readings to their encrypted local patient record from the Devices page. Simulated readings are never saved. Fingerprint sign-in uses WebAuthn/FIDO2 passkeys; an external fingerprint key must support user-verified passkeys. The fingerprint itself is verified by the device and is not sent to MarsMedic.
+
 Use the Light/Dark controls at the top-right of the app to change appearance. The selected theme is saved on the current device.
 
 The local service must be running whenever the app is used. Use Node.js 24 or newer. The database is stored in `data/marsmedic.sqlite`; its encryption key is stored separately at `~/.marsmedic-ai/health-data.key`. Back up both securely together. Losing the key makes encrypted health records unrecoverable. This local prototype has no remote backup or account recovery service and is not a certified clinical records system.

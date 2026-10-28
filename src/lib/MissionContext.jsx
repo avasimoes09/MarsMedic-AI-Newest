@@ -68,18 +68,33 @@ export function MissionProvider({ children }) {
     notifyAuthChange();
   }, [notifyAuthChange]);
 
-  const createAccount = useCallback(async (details) => {
+  const createAccount = useCallback(async (details, { externalOnly = false } = {}) => {
     const result = await localApi('/auth/register', { method: 'POST', body: details });
+    try {
+      const options = await localApi('/passkeys/register/options', { method: 'POST', body: { externalOnly } });
+      const response = await startRegistration({ optionsJSON: options });
+      await localApi('/passkeys/register/verify', {
+        method: 'POST',
+        body: { ...response, challenge: options.challenge },
+      });
+      result.profile.hasPasskey = true;
+    } catch (error) {
+      try {
+        await localApi('/auth/logout', { method: 'POST', body: { entries: [] } });
+      } catch { /* The PIN sign-in remains available if cleanup fails. */ }
+      return { fingerprintSetupFailed: true, error };
+    }
+    setPatientSession(result);
+    return { fingerprintSetupFailed: false };
+  }, [setPatientSession]);
+
+  const loginWithPin = useCallback(async (pin) => {
+    const result = await localApi('/auth/login-pin', { method: 'POST', body: { pin } });
     setPatientSession(result);
   }, [setPatientSession]);
 
-  const loginWithPin = useCallback(async (username, pin) => {
-    const result = await localApi('/auth/login-pin', { method: 'POST', body: { username, pin } });
-    setPatientSession(result);
-  }, [setPatientSession]);
-
-  const loginWithPasskey = useCallback(async (username) => {
-    const options = await localApi('/passkeys/login/options', { method: 'POST', body: { username } });
+  const loginWithPasskey = useCallback(async () => {
+    const options = await localApi('/passkeys/login/options', { method: 'POST', body: {} });
     const response = await startAuthentication({ optionsJSON: options });
     const result = await localApi('/passkeys/login/verify', {
       method: 'POST',
@@ -88,8 +103,8 @@ export function MissionProvider({ children }) {
     setPatientSession(result);
   }, [setPatientSession]);
 
-  const registerPasskey = useCallback(async () => {
-    const options = await localApi('/passkeys/register/options', { method: 'POST', body: {} });
+  const registerPasskey = useCallback(async ({ externalOnly = false } = {}) => {
+    const options = await localApi('/passkeys/register/options', { method: 'POST', body: { externalOnly } });
     const response = await startRegistration({ optionsJSON: options });
     await localApi('/passkeys/register/verify', {
       method: 'POST',
@@ -205,6 +220,16 @@ export function MissionProvider({ children }) {
     if (readings) recordEvent('Vitals', `HR ${readings.hr ?? '—'}, BP ${readings.bpSys ? `${readings.bpSys}/${readings.bpDia}` : '—'}, SpO2 ${readings.spo2 ?? '—'}%, temperature ${readings.temp ?? '—'}°C`);
   }, [recordEvent]);
 
+  const saveDeviceReading = useCallback(async (type, source, readings) => {
+    if (!patient || isGuest) throw new Error('Sign in to a patient account to save device readings.');
+    const result = await localApi('/device-readings', {
+      method: 'POST',
+      body: { type, source, readings },
+    });
+    setPatient((current) => current ? { ...current, deviceReadings: result.readings } : current);
+    return result.reading;
+  }, [patient, isGuest]);
+
   const persistConditions = useCallback(async (conditions) => {
     if (!patient) return;
     const updated = await updateProfile({ ...patient, conditions });
@@ -265,6 +290,7 @@ export function MissionProvider({ children }) {
       queueEmergencyPacket,
       liveVitals,
       setLiveVitals,
+      saveDeviceReading,
       recordEvent,
       applyDiagnosisToCrew,
       resolveCrewCondition,

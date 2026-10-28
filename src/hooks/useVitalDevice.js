@@ -40,8 +40,12 @@ export function useVitalDevice() {
 
   const disconnect = useCallback(() => {
     if (simRef.current) { clearInterval(simRef.current); simRef.current = null; }
-    if (serverRef.current) { try { serverRef.current.disconnect(); } catch {} serverRef.current = null; }
-    if (deviceRef.current) { try { deviceRef.current.removeEventListener('gattserverdisconnected', disconnect); } catch {} deviceRef.current = null; }
+    const server = serverRef.current;
+    const device = deviceRef.current;
+    serverRef.current = null;
+    deviceRef.current = null;
+    if (device) device.removeEventListener('gattserverdisconnected', disconnect);
+    if (server?.connected) server.disconnect();
     setStatus('idle');
     reset();
   }, [reset]);
@@ -123,7 +127,8 @@ export function useVitalDevice() {
 
   // Simulator for environments without a real BLE device (keeps the UI live offline).
   const simulate = useCallback(() => {
-    setStatus('connected');
+    disconnect();
+    setStatus('simulated');
     setDeviceName('SIMULATED PULSE-OX');
     let t = 0;
     simRef.current = setInterval(() => {
@@ -139,7 +144,7 @@ export function useVitalDevice() {
       }));
       setWaveform((w) => [...w.slice(-80), hr]);
     }, 600);
-  }, []);
+  }, [disconnect]);
 
   useEffect(() => () => {
     if (simRef.current) clearInterval(simRef.current);

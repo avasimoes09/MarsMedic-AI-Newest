@@ -9,12 +9,12 @@ import { getFollowupsForSymptoms } from '@/lib/followupQuestions';
 import { celsiusToFahrenheit, formatTemperature } from '@/lib/temperature';
 import VitalsTelemetry from '@/components/VitalsTelemetry';
 import MedicalCopilot from '@/pages/MedicalCopilot';
-import { Stethoscope, ChevronRight, Check, X, AlertTriangle, Sparkles, ClipboardList, Radio, Send } from 'lucide-react';
+import { Stethoscope, ChevronRight, Check, X, AlertTriangle, Sparkles, ClipboardList, Radio } from 'lucide-react';
 
 export default function SymptomAssessment({ emergency = false }) {
   const { state } = useLocation();
   const navigate = useNavigate();
-  const { setDiagnosis, liveVitals: patientVitals, applyDiagnosisToCrew, queueEmergencyPacket, temperatureUnit, crew } = useMission();
+  const { setDiagnosis, liveVitals: patientVitals, applyDiagnosisToCrew, queueEmergencyPacket, temperatureUnit, crew, isGuest } = useMission();
   const [externalVitals, setExternalVitals] = useState(null);
   const liveVitals = emergency ? externalVitals : patientVitals;
   const [systems, setSystems] = useState(state?.system ? [state.system] : []);
@@ -53,6 +53,25 @@ export default function SymptomAssessment({ emergency = false }) {
   const reset = () => { setSystems([]); setSelected([]); setFollowups({}); setResult(null); setEmergencyContactQueued(false); };
   const startTreatment = (dx) => { setDiagnosis(dx); navigate('/treatment'); };
   const toEarth = (dx) => { setDiagnosis(dx); navigate('/earth-alert'); };
+  const queueGuestEarthAlert = (diagnosis) => {
+    queueEmergencyPacket({
+      patient: 'Guest patient',
+      symptoms: diagnosis.evidence || [],
+      diagnosis: diagnosis.name,
+      severity: diagnosis.severity,
+      confidence: diagnosis.confidence,
+      vitals: liveVitals ? {
+        hr: liveVitals.hr,
+        bp: liveVitals.bpSys ? `${liveVitals.bpSys}/${liveVitals.bpDia}` : null,
+        temp: liveVitals.temp,
+        spo2: liveVitals.spo2,
+        respiratoryRate: liveVitals.respiratoryRate,
+      } : null,
+      treatments: diagnosis.treatment || [],
+      createdAt: new Date().toISOString(),
+    });
+    setEmergencyContactQueued(true);
+  };
   const contactEarth = () => {
     const diagnosisResult = result?.results[0];
     queueEmergencyPacket({
@@ -81,12 +100,10 @@ export default function SymptomAssessment({ emergency = false }) {
     setEmergencyContactQueued(true);
   };
   const emergencyContact = (
-    <div role="alert" className="panel mb-4 border-red-700 bg-red-950/40 p-4 text-sm text-red-100">
-      <p>Prepare an emergency packet for Earth. If no communication link is available, it will remain queued locally.</p>
-      <button onClick={contactEarth} disabled={emergencyContactQueued} className="btn-mission mt-3 border-red-700 bg-red-900/60 text-red-100 hover:bg-red-800/70 disabled:opacity-60">
-        <Send className="h-4 w-4" /> {emergencyContactQueued ? 'Emergency packet queued locally' : 'Contact Earth for Emergency'}
-      </button>
-    </div>
+    <button onClick={contactEarth} disabled={emergencyContactQueued} className="flex min-h-14 w-full items-center justify-between rounded-md border border-amber-700 bg-amber-950/40 px-4 py-3 text-left text-amber-200 transition hover:bg-amber-900/50 disabled:opacity-70">
+      <span className="flex items-center gap-2 font-semibold"><Radio className="h-5 w-5" /> Earth Alert</span>
+      <span className="text-xs text-amber-300">{emergencyContactQueued ? 'Queued locally' : 'Prepare emergency packet'}</span>
+    </button>
   );
   const emergencyVitalsSummary = externalVitals && (
     <div className="panel mb-4 p-4">
@@ -113,6 +130,25 @@ export default function SymptomAssessment({ emergency = false }) {
       <p className="mt-3 text-xs text-slate-500">General adult reference guidance only. Recheck readings; devices and individual baselines vary. Vitals alone cannot diagnose a condition.</p>
     </div>
   );
+  const emergencyDashboard = emergency && (
+    <div className="grid flex-1 items-stretch gap-5 lg:min-h-[calc(100dvh-8rem)] lg:grid-cols-[minmax(0,1.35fr)_minmax(18rem,0.9fr)]">
+      <MedicalCopilot embedded emergency onContactEarth={queueCopilotEarthContact} contactQueued={emergencyContactQueued} />
+      <aside className="flex flex-col gap-4">
+        {emergencyContact}
+        <VitalsTelemetry compact showAttach={false} onReadingsChange={setExternalVitals} className="flex-1" />
+        {emergencyVitalsSummary}
+      </aside>
+    </div>
+  );
+
+  if (emergency) {
+    return (
+      <div className="flex min-h-[calc(100dvh-2rem)] flex-col">
+        <PageHeader title="Emergency Assessment" subtitle="Emergency response protocol" icon={AlertTriangle} />
+        {emergencyDashboard}
+      </div>
+    );
+  }
 
   if (result) {
     const top = result.results[0];
@@ -120,9 +156,8 @@ export default function SymptomAssessment({ emergency = false }) {
     return (
       <div>
         <PageHeader title={emergency ? 'Emergency Triage Guidance' : 'AI Diagnosis'} subtitle={emergency ? 'Symptom-based decision support' : 'Explainable AI · Evidence-based'} icon={Sparkles} />
-        {emergency && emergencyContact}
+        {emergencyDashboard}
         {emergency && emergencyVitalsSummary}
-        {emergency && <div className="mb-4"><MedicalCopilot embedded emergency onContactEarth={queueCopilotEarthContact} contactQueued={emergencyContactQueued} /></div>}
         {!top ? (
           <div className="panel p-6">
             <div className="text-lg text-slate-100">No critical pattern detected.</div>
@@ -187,9 +222,15 @@ export default function SymptomAssessment({ emergency = false }) {
             )}
             <div className="flex flex-wrap gap-3">
               {!emergency && <button onClick={() => startTreatment(top)} className="btn-mission"><ClipboardList className="h-5 w-5" /> Start Treatment Coach</button>}
-              {!emergency && <button onClick={() => toEarth(top)} className="btn-mission text-amber-300 hover:bg-amber-950/40 hover:border-amber-700"><Radio className="h-5 w-5" /> Generate Earth Alert</button>}
+              {!emergency && !isGuest && <button onClick={() => toEarth(top)} className="btn-mission text-amber-300 hover:bg-amber-950/40 hover:border-amber-700"><Radio className="h-5 w-5" /> Generate Earth Alert</button>}
+              {!emergency && isGuest && (top.severity === 'HIGH' || top.severity === 'EMERGENCY') && (
+                <button onClick={() => queueGuestEarthAlert(top)} disabled={emergencyContactQueued} className="btn-mission border-amber-700 text-amber-300 hover:bg-amber-950/40 disabled:opacity-60">
+                  <Radio className="h-5 w-5" /> {emergencyContactQueued ? 'Emergency alert queued locally' : 'Alert Earth'}
+                </button>
+              )}
               <button onClick={reset} className="btn-mission">New Assessment</button>
             </div>
+            {isGuest && emergencyContactQueued && <p role="status" className="text-sm text-amber-300">Emergency alert queued on this device. It will transmit when a communication link is available.</p>}
           </div>
         )}
       </div>
@@ -199,10 +240,8 @@ export default function SymptomAssessment({ emergency = false }) {
   return (
     <div>
       <PageHeader title={emergency ? 'Emergency Assessment' : 'Symptom Assessment'} subtitle={emergency ? 'Quick symptom triage · No account required' : 'Tap to select · Mix body systems'} icon={emergency ? AlertTriangle : Stethoscope} />
-      {emergency && emergencyContact}
-      {emergency && <div className="mb-4"><VitalsTelemetry compact showAttach={false} onReadingsChange={setExternalVitals} /></div>}
+      {emergencyDashboard}
       {emergency && emergencyVitalsSummary}
-      {emergency && <div className="mb-5"><MedicalCopilot embedded emergency onContactEarth={queueCopilotEarthContact} contactQueued={emergencyContactQueued} /></div>}
       {liveVitals && (
         <div className="panel mb-4 flex flex-wrap items-center gap-x-4 gap-y-1 p-3 text-sm text-slate-300">
           <span className="chip border-blue-800 bg-blue-950/40 text-blue-300">Live Vitals · {liveVitals.source}</span>

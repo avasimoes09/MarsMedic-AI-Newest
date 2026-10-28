@@ -2,6 +2,7 @@ import { useMission } from '@/lib/MissionContext';
 import { celsiusToFahrenheit } from '@/lib/temperature';
 import { useEnvironmentalDevice } from '@/hooks/useEnvironmentalDevice';
 import { BluetoothConnected, Cloud, Thermometer, Activity } from 'lucide-react';
+import { useState } from 'react';
 
 function SensorReading({ label, value, unit, icon: Icon }) {
   return (
@@ -16,10 +17,13 @@ function SensorReading({ label, value, unit, icon: Icon }) {
 }
 
 export default function EnvironmentalTelemetry() {
-  const { temperatureUnit, setTemperatureUnit } = useMission();
+  const { temperatureUnit, setTemperatureUnit, saveDeviceReading, patient, isGuest } = useMission();
   const { status, deviceName, readings, error, supported, connect, disconnect, simulate } = useEnvironmentalDevice();
   const connected = status === 'connected' || status === 'simulated';
   const simulated = status === 'simulated';
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState('');
+  const [saveMessage, setSaveMessage] = useState('');
   const temperature = readings.temperatureC == null
     ? null
     : temperatureUnit === 'F'
@@ -70,6 +74,8 @@ export default function EnvironmentalTelemetry() {
 
       {simulated && <p className="mt-3 text-xs text-amber-300">Simulated readings for preview only; not measured by a real sensor.</p>}
       {error && <p role="alert" className="mt-3 text-sm text-red-300">{error}</p>}
+      {saveError && <p role="alert" className="mt-3 text-sm text-red-300">{saveError}</p>}
+      {saveMessage && <p role="status" className="mt-3 text-sm text-emerald-300">{saveMessage}</p>}
       {!connected && !error && (
         <p className="mt-3 text-xs text-slate-400">
           {supported
@@ -87,6 +93,29 @@ export default function EnvironmentalTelemetry() {
           </button>
         )}
       </div>
+      {status === 'connected' && (
+        <button
+          type="button"
+          disabled={saving || !patient || isGuest}
+          onClick={async () => {
+            setSaving(true);
+            setSaveError('');
+            setSaveMessage('');
+            try {
+              await saveDeviceReading('environmental', deviceName, readings);
+              setSaveMessage("Sensor readings saved to this patient's encrypted local record.");
+            } catch (saveRequestError) {
+              setSaveError(saveRequestError.message);
+            } finally {
+              setSaving(false);
+            }
+          }}
+          className="btn-mission mt-2 w-full py-3 disabled:opacity-50"
+        >
+          {saving ? 'Saving…' : 'Save readings to patient record'}
+        </button>
+      )}
+      {!patient && status === 'connected' && <p className="mt-2 text-xs text-slate-400">Sign in to a patient account to save readings.</p>}
     </section>
   );
 }

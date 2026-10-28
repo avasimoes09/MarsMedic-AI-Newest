@@ -13,6 +13,7 @@ import {
 import {
   createPatient,
   database,
+  findPatientsByPin,
   findPatientByUsername,
   findPatientById,
   readPatient,
@@ -165,7 +166,8 @@ function requestOrigin(request) {
 function consumeChallenge(challenge, purpose, patientId) {
   const entry = challenges.get(challenge);
   challenges.delete(challenge);
-  return entry && entry.purpose === purpose && entry.patientId === patientId && entry.expiresAt > Date.now();
+  const patientMatches = entry?.patientId === patientId || (purpose === 'login' && entry?.patientId === null);
+  return entry && entry.purpose === purpose && patientMatches && entry.expiresAt > Date.now();
 }
 
 function logSession(patient, body) {
@@ -219,33 +221,28 @@ async function handle(request, response) {
     if (request.method === 'POST' && url.pathname === '/api/auth/register') {
       const body = await readBody(request);
       const name = String(body.name || '').trim().slice(0, 100);
-      const username = String(body.username || '').trim().toLowerCase().slice(0, 32);
-      if (!name || !/^[a-z0-9._-]{3,32}$/.test(username) || !pinOkay(body.pin)) {
-        return json(response, 400, { error: 'Enter a name, a 3-32 character username, and four-digit PIN.' });
+      if (!name || !pinOkay(body.pin)) {
+        return json(response, 400, { error: 'Enter a name and four-digit PIN.' });
       }
+      if (findPatientsByPin(body.pin).length) return json(response, 409, { error: 'That PIN is already in use. Choose a different four-digit PIN.' });
       const id = randomBytes(16).toString('hex');
       const healthData = { ...normalizeProfile(body), conditions: [], medicalHistoryEntries: [] };
-      try {
-        createPatient({ id, username, name, pin: body.pin, healthData });
-      } catch (error) {
-        if (String(error.message).includes('UNIQUE')) return json(response, 409, { error: 'That username is already in use.' });
-        throw error;
-      }
+      createPatient({ id, username: id, name, pin: body.pin, healthData });
       const startedAt = createSession(response, id);
       return json(response, 201, { profile: publicProfile(findPatientById(id)), startedAt });
     }
 
     if (request.method === 'POST' && url.pathname === '/api/auth/login-pin') {
       const body = await readBody(request);
-      const username = String(body.username || '').trim().toLowerCase();
-      const key = attemptKey(username, request);
+      const key = attemptKey('pin', request);
       if (blocked(key)) return json(response, 429, { error: 'Too many attempts. Try again in 15 minutes.' });
-      const patient = findPatientByUsername(username);
-      if (!patient || !pinOkay(body.pin) || !verifyPin(body.pin, patient.pin_salt, patient.pin_hash)) {
+      const matches = pinOkay(body.pin) ? findPatientsByPin(body.pin) : [];
+      if (matches.length !== 1) {
         failedAttempt(key);
-        return json(response, 401, { error: 'Username or PIN is incorrect.' });
+        return json(response, 401, { error: 'PIN is incorrect or is shared by multiple accounts.' });
       }
       attempts.delete(key);
+      const [patient] = matches;
       const startedAt = createSession(response, patient.id);
       return json(response, 200, { profile: publicProfile(patient), startedAt });
     }
@@ -286,6 +283,34 @@ async function handle(request, response) {
       return json(response, 200, { profile: publicProfile(findPatientById(auth.patient.id)) });
     }
 
+    if (request.method === 'POST' && url.pathname === '/api/device-readings') {
+      const auth = currentPatient(request);
+      if (!auth) return json(response, 401, { error: 'Sign in required.' });
+      const body = await readBody(request);
+      const fieldsByType = {
+        vitals: ['hr', 'spo2', 'bpSys', 'bpDia', 'temp'],
+        environmental: ['temperatureC', 'humidity', 'pressureKpa', 'co2Ppm'],
+      };
+      const fields = fieldsByType[body.type];
+      if (!fields || typeof body.source !== 'string' || !body.source.trim() || !body.readings || typeof body.readings !== 'object' || Array.isArray(body.readings)) {
+        return json(response, 400, { error: 'Provide a supported device type, source, and readings.' });
+      }
+      const readings = Object.fromEntries(fields
+        .filter((field) => typeof body.readings[field] === 'number' && Number.isFinite(body.readings[field]))
+        .map((field) => [field, body.readings[field]]));
+      if (!Object.keys(readings).length) return json(response, 400, { error: 'At least one finite device reading is required.' });
+      const reading = {
+        type: body.type,
+        source: body.source.trim().slice(0, 100),
+        recordedAt: new Date().toISOString(),
+        readings,
+      };
+      const profile = readPatient(auth.patient);
+      const deviceReadings = [...(Array.isArray(profile.deviceReadings) ? profile.deviceReadings : []), reading].slice(-500);
+      updatePatientHealth(auth.patient.id, { ...profile, deviceReadings });
+      return json(response, 201, { reading, readings: deviceReadings });
+    }
+
     if (request.method === 'POST' && url.pathname === '/api/profile/pin') {
       const auth = currentPatient(request);
       if (!auth) return json(response, 401, { error: 'Sign in required.' });
@@ -294,6 +319,9 @@ async function handle(request, response) {
         return json(response, 401, { error: 'Current PIN is incorrect.' });
       }
       if (!pinOkay(body.newPin)) return json(response, 400, { error: 'PIN must contain exactly four digits.' });
+      if (findPatientsByPin(body.newPin).some((patient) => patient.id !== auth.patient.id)) {
+        return json(response, 409, { error: 'That PIN is already in use. Choose a different four-digit PIN.' });
+      }
       updatePatientPin(auth.patient.id, body.newPin);
       return json(response, 200, { ok: true });
     }
@@ -309,16 +337,21 @@ async function handle(request, response) {
     if (request.method === 'POST' && url.pathname === '/api/passkeys/register/options') {
       const auth = currentPatient(request);
       if (!auth) return json(response, 401, { error: 'Sign in required.' });
+      const body = await readBody(request);
       const { origin, rpID } = requestOrigin(request);
       const existing = database.prepare('SELECT credential_id, transports FROM passkeys WHERE patient_id = ?').all(auth.patient.id);
       const options = await generateRegistrationOptions({
         rpName: 'MarsMedic AI',
         rpID,
         userID: new Uint8Array(Buffer.from(auth.patient.id)),
-        userName: auth.patient.username,
+        userName: auth.patient.name,
         userDisplayName: auth.patient.name,
         attestationType: 'none',
-        authenticatorSelection: { authenticatorAttachment: 'platform', residentKey: 'preferred', userVerification: 'required' },
+        authenticatorSelection: {
+          ...(body.externalOnly === true ? { authenticatorAttachment: 'cross-platform' } : {}),
+          residentKey: 'preferred',
+          userVerification: 'required',
+        },
         excludeCredentials: existing.map((item) => ({ id: item.credential_id, transports: JSON.parse(item.transports) })),
       });
       challenges.set(options.challenge, { purpose: 'register', patientId: auth.patient.id, origin, rpID, expiresAt: Date.now() + 5 * 60 * 1000 });
@@ -351,18 +384,15 @@ async function handle(request, response) {
     }
 
     if (request.method === 'POST' && url.pathname === '/api/passkeys/login/options') {
-      const body = await readBody(request);
-      const patient = findPatientByUsername(String(body.username || '').trim().toLowerCase());
-      if (!patient) return json(response, 401, { error: 'Username or passkey is incorrect.' });
       const { origin, rpID } = requestOrigin(request);
-      const credentials = database.prepare('SELECT credential_id, transports FROM passkeys WHERE patient_id = ?').all(patient.id);
+      const credentials = database.prepare('SELECT credential_id, transports FROM passkeys').all();
       if (!credentials.length) return json(response, 404, { error: 'No passkey is set up for this account.' });
       const options = await generateAuthenticationOptions({
         rpID,
         allowCredentials: credentials.map((item) => ({ id: item.credential_id, transports: JSON.parse(item.transports) })),
         userVerification: 'required',
       });
-      challenges.set(options.challenge, { purpose: 'login', patientId: patient.id, origin, rpID, expiresAt: Date.now() + 5 * 60 * 1000 });
+      challenges.set(options.challenge, { purpose: 'login', patientId: null, origin, rpID, expiresAt: Date.now() + 5 * 60 * 1000 });
       return json(response, 200, options);
     }
 

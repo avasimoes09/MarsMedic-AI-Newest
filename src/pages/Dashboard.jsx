@@ -1,119 +1,112 @@
-import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMission } from '@/lib/MissionContext';
 import { INVENTORY as SEED } from '@/lib/missionData';
 import VitalsTelemetry from '@/components/VitalsTelemetry';
-import { Stethoscope, HeartPulse, Boxes, FileText, Radio, Mic, AlertTriangle, ChevronRight, Bluetooth, Moon } from 'lucide-react';
-
-const TOOLS = [
-  { to: '/devices', label: 'Vital Devices', icon: Bluetooth, color: 'cyan' },
-  { to: '/assessment', label: 'New Assessment', icon: Stethoscope, color: 'cyan' },
-  { to: '/twin', label: 'Patient Health Record', icon: HeartPulse, color: 'cyan' },
-  { to: '/inventory', label: 'Medical Inventory', icon: Boxes, color: 'cyan' },
-  { to: '/commander', label: 'Patient Records', icon: FileText, color: 'cyan' },
-  { to: '/earth-alert', label: 'Earth Alert', icon: Radio, color: 'amber' },
-  { to: '/voice', label: 'Voice Assessment', icon: Mic, color: 'cyan' },
-  { to: '/wellness', label: 'Sleep & Food', icon: Moon, color: 'cyan' },
-];
+import EnvironmentalTelemetry from '@/components/EnvironmentalTelemetry';
+import { AlertTriangle, ArrowUpRight, FileText, Fingerprint } from 'lucide-react';
 
 export default function Dashboard() {
   const navigate = useNavigate();
-  const { liveVitals, crew, effectiveCrew } = useMission();
-  const [lowStock, setLowStock] = useState([]);
-
-  useEffect(() => {
-    const low = SEED.filter((it) => it.quantity < (it.unit === 'bags' || it.unit === 'patches' ? 10 : 30))
-      .map((it, i) => ({ id: `g_${i}`, name: it.name, quantity: it.quantity, unit: it.unit }));
-    setLowStock(low);
-  }, []);
+  const { crew, isGuest } = useMission();
+  const lowStock = SEED.filter((item) => item.quantity < (item.unit === 'bags' || item.unit === 'patches' ? 10 : 30));
 
   return (
-    <div>
-      <div className="mb-6">
-        <div className="text-xs font-medium text-slate-400">System · Medical</div>
-        <h1 className="text-2xl font-bold text-slate-100">Mission Medical Readiness</h1>
-      </div>
-
-      <div className="grid gap-4 lg:grid-cols-3">
-        <div className="lg:col-span-2">
-          <VitalsTelemetry compact />
-        </div>
-        <div className="space-y-4">
-          <div className="panel p-4">
-            <div className="mb-3 flex items-center gap-2 text-slate-100">
-              <ChevronRight className="h-4 w-4 text-blue-400" />
-              <span className="text-sm font-semibold">Quick Actions</span>
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              <button onClick={() => navigate('/devices')} className="btn-mission py-3 text-sm"><Bluetooth className="h-4 w-4" /> Connect Device</button>
-              <button onClick={() => navigate('/assessment')} className="btn-mission py-3 text-sm"><Stethoscope className="h-4 w-4" /> Assess</button>
-              <button onClick={() => navigate('/twin')} className="btn-mission py-3 text-sm"><HeartPulse className="h-4 w-4" /> Health Profile</button>
-              <button onClick={() => navigate('/inventory')} className="btn-mission py-3 text-sm"><Boxes className="h-4 w-4" /> Inventory</button>
-            </div>
-            {liveVitals && (
-              <div className="mt-3 rounded-md border border-blue-800 bg-blue-950/40 p-2 text-xs text-blue-300">
-                Live vitals attached · HR {liveVitals.hr ?? '—'} · SpO₂ {liveVitals.spo2 ?? '—'}
-              </div>
-            )}
+    <div className="space-y-5">
+      {!isGuest && (
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <div className="text-xs font-medium uppercase tracking-wide text-cyan-300">Mars transit · medical systems</div>
+            <h1 className="mt-1 text-2xl font-bold text-slate-100">Medical Readiness</h1>
           </div>
+          <div className="text-right text-xs text-slate-400">Patient profile: <span className="font-medium text-slate-200">{crew?.name || 'Not selected'}</span></div>
+        </div>
+      )}
+      {!isGuest && crew && !crew.hasPasskey && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-cyan-800 bg-cyan-950/30 p-4">
+          <div>
+            <div className="text-sm font-semibold text-slate-100">Set up fingerprint sign-in</div>
+            <p className="mt-1 text-xs text-slate-400">Add a compatible FIDO2 reader or use this device’s biometric prompt.</p>
+          </div>
+          <button onClick={() => navigate('/crew')} className="btn-mission py-2.5 text-sm">
+            <Fingerprint className="h-4 w-4" /> Set up passkey
+          </button>
+        </div>
+      )}
 
+      <div className="grid items-start gap-4 xl:grid-cols-[minmax(17rem,0.9fr)_minmax(22rem,1.35fr)_minmax(16rem,0.8fr)]">
+        <section aria-labelledby="vitals-heading">
+          <div className="mb-2 flex items-center gap-2 text-slate-100">
+            <span className="h-2 w-2 rounded-full bg-cyan-400" />
+            <h2 id="vitals-heading" className="text-sm font-semibold">Vitals</h2>
+          </div>
+          <VitalsTelemetry compact />
+          {crew && (
+            <div className="panel mt-4 p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-xs text-slate-400">Patient</div>
+                  <div className="mt-1 font-semibold text-slate-100">{crew.name}</div>
+                </div>
+                <span className="chip border-slate-700 bg-slate-800 text-slate-300">{crew.bloodType || 'Blood type n/r'}</span>
+              </div>
+              <button onClick={() => navigate('/twin')} className="mt-3 inline-flex items-center gap-1 text-xs font-medium text-cyan-300 hover:text-cyan-200">
+                Open patient record <ArrowUpRight className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          )}
+        </section>
+
+        <section className="space-y-4" aria-label={isGuest ? 'Environment' : 'Environment and patient records'}>
+          <div>
+            <div className="mb-2 flex items-center gap-2 text-slate-100">
+              <span className="h-2 w-2 rounded-full bg-emerald-400" />
+              <h2 className="text-sm font-semibold">Environment</h2>
+            </div>
+            <EnvironmentalTelemetry />
+          </div>
+          {!isGuest && <div className="panel p-4">
+            <div className="mb-3 flex items-center gap-2 text-slate-100">
+              <FileText className="h-4 w-4 text-cyan-300" />
+              <h2 className="text-sm font-semibold">Patient Records</h2>
+            </div>
+            {crew ? (
+              <dl className="grid gap-x-4 gap-y-3 sm:grid-cols-2">
+                <div><dt className="text-[11px] font-medium uppercase tracking-wide text-slate-500">Allergies</dt><dd className="mt-1 text-sm text-slate-200">{crew.allergies || 'Not recorded'}</dd></div>
+                <div><dt className="text-[11px] font-medium uppercase tracking-wide text-slate-500">Medications</dt><dd className="mt-1 text-sm text-slate-200">{crew.medications || 'Not recorded'}</dd></div>
+                <div className="sm:col-span-2"><dt className="text-[11px] font-medium uppercase tracking-wide text-slate-500">Medical history</dt><dd className="mt-1 text-sm text-slate-200">{crew.medicalHistory || 'Not recorded'}</dd></div>
+              </dl>
+            ) : (
+              <p className="text-sm text-slate-400">No patient record selected.</p>
+            )}
+            {crew && <button onClick={() => navigate('/twin')} className="btn-mission mt-4 py-2 text-sm">View full record</button>}
+          </div>}
+        </section>
+
+        <section aria-labelledby="low-inventory-heading">
+          <div className="mb-2 flex items-center gap-2 text-slate-100">
+            <AlertTriangle className="h-4 w-4 text-amber-400" />
+            <h2 id="low-inventory-heading" className="text-sm font-semibold">Low Inventory</h2>
+          </div>
           <div className="panel p-4">
             <div className="mb-3 flex items-center justify-between">
-              <div className="flex items-center gap-2 text-slate-100">
-                <AlertTriangle className="h-4 w-4 text-amber-400" />
-                <span className="text-sm font-semibold">Low-Stock Alerts</span>
-              </div>
+              <span className="text-xs text-slate-400">Items below threshold</span>
               <span className="chip border-amber-800 bg-amber-950/40 text-amber-300">{lowStock.length}</span>
             </div>
             {lowStock.length === 0 ? (
               <div className="text-xs text-slate-400">All supplies nominal.</div>
             ) : (
-              <ul className="space-y-2">
-                {lowStock.slice(0, 4).map((it) => (
-                  <li key={it.id} className="flex items-center justify-between rounded-md border border-amber-800 bg-amber-950/40 px-3 py-2">
-                    <span className="text-sm text-slate-300">{it.name}</span>
-                    <span className="font-mono text-xs text-amber-300">{it.quantity} {it.unit}</span>
+              <ul className="divide-y divide-slate-800">
+                {lowStock.slice(0, 6).map((item) => (
+                  <li key={item.name} className="flex items-start justify-between gap-3 py-3 first:pt-1">
+                    <span className="text-sm text-slate-300">{item.name}</span>
+                    <span className="shrink-0 font-mono text-xs text-amber-300">{item.quantity} {item.unit}</span>
                   </li>
                 ))}
               </ul>
             )}
-            <button onClick={() => navigate('/inventory')} className="btn-mission mt-3 w-full py-2.5 text-sm">Manage Inventory</button>
           </div>
-        </div>
-      </div>
-
-      <div className="mb-3 mt-8 flex items-center justify-between">
-        <div className="text-xs font-medium text-slate-400">Patient Health Profile</div>
-        <button onClick={() => navigate('/crew')} className="text-xs font-medium text-blue-400 hover:text-blue-300">Manage profiles</button>
-      </div>
-      <div className="mb-8">
-        {crew ? (
-          <button onClick={() => navigate('/twin')} className="panel w-full p-4 text-left transition hover:border-blue-500">
-            <div className="text-sm font-semibold text-slate-100">{crew.name}</div>
-            <div className="mt-1 text-xs text-slate-400">{crew.bloodType || 'Blood type not recorded'} · {crew.allergies ? `Allergies: ${crew.allergies}` : 'Allergies not recorded'}</div>
-          </button>
-        ) : (
-          <button onClick={() => navigate('/crew')} className="panel w-full p-4 text-left text-sm text-slate-400 transition hover:border-blue-500">
-            {effectiveCrew.length ? 'Select a patient profile to view health information.' : 'No patient profiles have been added.'}
-          </button>
-        )}
-      </div>
-
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-        {TOOLS.map((b) => {
-          const I = b.icon;
-          const toneCls = b.color === 'red'
-            ? 'border-slate-800 bg-slate-900 text-slate-300 hover:border-red-700 hover:bg-red-950/40'
-            : b.color === 'amber'
-              ? 'border-slate-800 bg-slate-900 text-slate-300 hover:border-amber-700 hover:bg-amber-950/40'
-              : 'border-slate-800 bg-slate-900 text-slate-300 hover:border-blue-600 hover:bg-blue-950/40';
-          return (
-            <button key={b.label} onClick={() => navigate(b.to)} className={`flex flex-col items-center justify-center gap-2 rounded-lg border p-5 text-center font-medium transition active:scale-[0.99] ${toneCls}`}>
-              <I className="h-6 w-6" />
-              <span className="text-sm leading-tight">{b.label}</span>
-            </button>
-          );
-        })}
+          <button onClick={() => navigate('/inventory')} className="btn-mission mt-3 w-full py-2.5 text-sm">Open inventory</button>
+        </section>
       </div>
     </div>
   );

@@ -1,5 +1,5 @@
 import { Activity, BluetoothConnected, Save, Stethoscope } from 'lucide-react';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useVitalDevice } from '@/hooks/useVitalDevice';
 import { useMission } from '@/lib/MissionContext';
 import { useNavigate } from 'react-router-dom';
@@ -43,12 +43,16 @@ function Readout({ kind, value, temperatureUnit }) {
   );
 }
 
-export default function VitalsTelemetry({ compact = false, showAttach = true, onReadingsChange }) {
+export default function VitalsTelemetry({ compact = false, showAttach = true, onReadingsChange, className = '' }) {
   const dev = useVitalDevice();
   const { status, deviceName, readings, waveform, supported, connect, disconnect, simulate } = dev;
-  const { setLiveVitals, temperatureUnit, setTemperatureUnit } = useMission();
+  const { setLiveVitals, saveDeviceReading, patient, isGuest, temperatureUnit, setTemperatureUnit } = useMission();
   const navigate = useNavigate();
   const connected = status === 'connected';
+  const simulated = status === 'simulated';
+  const active = connected || simulated;
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState('');
 
   useEffect(() => {
     onReadingsChange?.(connected ? { ...readings, source: deviceName, at: Date.now() } : null);
@@ -59,8 +63,22 @@ export default function VitalsTelemetry({ compact = false, showAttach = true, on
     navigate(dest);
   };
 
+  const saveToRecord = async () => {
+    setSaving(true);
+    setSaveError('');
+    try {
+      await saveDeviceReading('vitals', deviceName, readings);
+      setLiveVitals({ ...readings, source: deviceName, at: Date.now() });
+      navigate('/twin');
+    } catch (error) {
+      setSaveError(error.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
-    <div className="panel panel-glow p-4">
+    <div className={`panel panel-glow p-4 ${className}`}>
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Activity className="h-5 w-5 text-blue-400" />
@@ -68,11 +86,11 @@ export default function VitalsTelemetry({ compact = false, showAttach = true, on
         </div>
         <span className={`chip ${connected ? 'border-emerald-800 bg-emerald-950/40 text-emerald-300' : 'border-slate-700 bg-slate-800 text-slate-400'}`}>
           <span className={`h-1.5 w-1.5 rounded-full ${connected ? 'bg-emerald-500' : 'bg-slate-500'}`} />
-          {connected ? 'Streaming' : status === 'scanning' ? 'Scanning' : 'Offline'}
+          {connected ? 'Streaming' : simulated ? 'Demo stream' : status === 'scanning' ? 'Scanning' : 'Offline'}
         </span>
       </div>
 
-      {!connected && (
+      {!active && (
         <div className="mt-4 flex flex-col gap-3">
           <button onClick={connect} disabled={status === 'scanning'} className="btn-mission py-4">
             {status === 'scanning' ? 'Scanning…' : 'Connect BLE Device'}
@@ -86,15 +104,16 @@ export default function VitalsTelemetry({ compact = false, showAttach = true, on
         </div>
       )}
 
-      {connected && (
+      {active && (
         <>
           <div className="mt-3 flex items-center gap-2 text-sm text-slate-300">
-            <BluetoothConnected className="h-4 w-4 text-blue-400" /> {deviceName}
+            {simulated ? <Activity className="h-4 w-4 text-amber-400" /> : <BluetoothConnected className="h-4 w-4 text-blue-400" />} {deviceName}
           </div>
+          {simulated && <p className="mt-2 text-xs text-amber-300">Simulated readings are for preview only and cannot be saved to a patient record.</p>}
           <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
-            <Readout kind="hr" value={readings.hr} />
-            <Readout kind="spo2" value={readings.spo2} />
-            <Readout kind="bp" value={{ bpSys: readings.bpSys, bpDia: readings.bpDia }} />
+            <Readout kind="hr" value={readings.hr} temperatureUnit={temperatureUnit} />
+            <Readout kind="spo2" value={readings.spo2} temperatureUnit={temperatureUnit} />
+            <Readout kind="bp" value={{ bpSys: readings.bpSys, bpDia: readings.bpDia }} temperatureUnit={temperatureUnit} />
             <Readout kind="temp" value={readings.temp} temperatureUnit={temperatureUnit} />
           </div>
           <div className="mt-2 flex items-center gap-2 text-xs text-slate-400">
@@ -107,14 +126,19 @@ export default function VitalsTelemetry({ compact = false, showAttach = true, on
             <Waveform data={waveform} />
           </div>
           <div className="mt-3 flex flex-wrap gap-2">
-            {showAttach && (
+            {showAttach && connected && (
               <>
                 <button onClick={() => attach('/assessment')} className="btn-mission py-2.5 text-sm"><Stethoscope className="h-4 w-4" /> Attach to Assessment</button>
-                <button onClick={() => attach('/twin')} className="btn-mission py-2.5 text-sm"><Save className="h-4 w-4" /> Save to Twin</button>
+                <button onClick={saveToRecord} disabled={saving || !patient || isGuest} className="btn-mission py-2.5 text-sm disabled:opacity-50">
+                  {saving ? <Activity className="h-4 w-4 animate-pulse" /> : <Save className="h-4 w-4" />}
+                  Save to patient record
+                </button>
               </>
             )}
             <button onClick={disconnect} className="btn-mission py-2.5 text-sm text-red-400 hover:bg-red-950/40 hover:border-red-700">Disconnect</button>
           </div>
+          {!patient && connected && <p className="mt-2 text-xs text-slate-400">Sign in to a patient account to save readings.</p>}
+          {saveError && <p role="alert" className="mt-2 text-sm text-red-300">{saveError}</p>}
         </>
       )}
     </div>

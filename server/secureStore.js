@@ -86,6 +86,11 @@ export function findPatientByUsername(username) {
   return database.prepare('SELECT * FROM patients WHERE username = ?').get(username);
 }
 
+export function findPatientsByPin(pin) {
+  return database.prepare('SELECT * FROM patients').all()
+    .filter((patient) => verifyPin(pin, patient.pin_salt, patient.pin_hash));
+}
+
 export function findPatientById(id) {
   return database.prepare('SELECT * FROM patients WHERE id = ?').get(id);
 }
@@ -93,7 +98,6 @@ export function findPatientById(id) {
 export function readPatient(patient) {
   return {
     id: patient.id,
-    username: patient.username,
     name: patient.name,
     ...decrypt(patient.health_data),
   };
