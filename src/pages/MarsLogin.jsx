@@ -1,3 +1,4 @@
+// Handles local account sign-in, account creation, and guest entry.
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMission } from '@/lib/MissionContext';

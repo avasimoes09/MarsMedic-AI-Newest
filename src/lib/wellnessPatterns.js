@@ -1,3 +1,4 @@
+// Identifies local patterns in wellness logs without using network services.
 // Rule-based wellness pattern recognition for the sleep + food logs.
 // Runs fully offline: every finding is derived from the logged entries.
 

@@ -1,3 +1,4 @@
+// Shares local patient session, profile, passkey, and device state across the app.
 import React, { createContext, useContext, useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { startAuthentication, startRegistration } from '@simplewebauthn/browser';
 import { localApi } from '@/lib/localApi';

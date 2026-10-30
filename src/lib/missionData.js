@@ -1,3 +1,4 @@
+// Contains built-in symptom, body-system, supply, and space-medicine data.
 export const BODY_SYSTEMS = [
   { id: 'cardiovascular', label: 'Cardiovascular', emoji: '❤️' },
   { id: 'respiratory', label: 'Respiratory', emoji: '🫁' },

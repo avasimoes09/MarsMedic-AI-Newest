@@ -1,3 +1,4 @@
+// Styled tab primitives for switching between panels.
 import * as React from "react"
 import * as TabsPrimitive from "@radix-ui/react-tabs"
 

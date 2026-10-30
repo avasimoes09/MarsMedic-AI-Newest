@@ -1,3 +1,4 @@
+// Tests vital-reading interpretation and related symptom guidance.
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { decodeBloodPressureMeasurement } from '../hooks/useVitalDevice.js';

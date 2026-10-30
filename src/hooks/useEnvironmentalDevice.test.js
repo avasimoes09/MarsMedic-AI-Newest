@@ -1,3 +1,4 @@
+// Tests environmental sensor measurement decoding and simulated readings.
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createSimulatedEnvironmentalReadings, decodeEnvironmentalMeasurement } from './useEnvironmentalDevice.js';

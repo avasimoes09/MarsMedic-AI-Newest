@@ -1,3 +1,4 @@
+// Starts the loopback-first HTTP API and serves the built frontend.
 import { createHash, randomBytes } from 'node:crypto';
 import { createReadStream, existsSync, readFileSync } from 'node:fs';
 import http from 'node:http';

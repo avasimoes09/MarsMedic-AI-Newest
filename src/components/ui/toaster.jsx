@@ -1,3 +1,4 @@
+// Renders the active toast notifications from the toast store.
 import { useToast } from "@/components/ui/use-toast";
 import {
   Toast,

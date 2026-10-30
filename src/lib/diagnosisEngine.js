@@ -1,3 +1,4 @@
+// Scores selected symptoms and health context to produce assessment guidance.
 import { SYMPTOMS } from './missionData.js';
 import { FOLLOWUP_BONUSES } from './followupQuestions.js';
 

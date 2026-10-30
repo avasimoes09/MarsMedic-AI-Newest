@@ -1,3 +1,4 @@
+// Displays the active patient's locally stored health record and history.
 import { useNavigate } from 'react-router-dom';
 import { useMission } from '@/lib/MissionContext';
 import PageHeader from '@/components/PageHeader';

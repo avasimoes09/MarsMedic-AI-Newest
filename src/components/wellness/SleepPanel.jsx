@@ -1,3 +1,4 @@
+// Records and displays locally stored sleep entries.
 import { useState } from 'react';
 import { Moon, Sun, Save, Trash2 } from 'lucide-react';
 import DigitalClockPicker from './DigitalClockPicker';

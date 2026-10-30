@@ -1,3 +1,4 @@
+// Provides shared styling helpers for composing class names.
 import { clsx } from "clsx"
 import { twMerge } from "tailwind-merge"
 

@@ -1,3 +1,4 @@
+// Maintains the device-local medical supply and food/drink inventory.
 import { useEffect, useState, useCallback } from 'react';
 import PageHeader from '@/components/PageHeader';
 import { INVENTORY as SEED } from '@/lib/missionData';

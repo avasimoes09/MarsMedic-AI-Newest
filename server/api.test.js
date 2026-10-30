@@ -1,3 +1,4 @@
+// Tests local API account, record-isolation, PIN, session, and passkey flows.
 import assert from 'node:assert/strict';
 import { once } from 'node:events';
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs';

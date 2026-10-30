@@ -1,3 +1,4 @@
+// Displays vital-sign sensor readings, connection actions, and save controls.
 import { Activity, BluetoothConnected, Save, Stethoscope } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useVitalDevice } from '@/hooks/useVitalDevice';

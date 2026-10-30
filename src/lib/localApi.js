@@ -1,3 +1,4 @@
+// Sends same-origin requests to the local API and reports service errors.
 export async function localApi(path, { body, ...options } = {}) {
   const response = await fetch(`/api${path}`, {
     credentials: 'same-origin',

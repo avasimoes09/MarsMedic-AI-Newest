@@ -1,3 +1,4 @@
+// Configures Tailwind theme extensions and source-file scanning.
 /** @type {import('tailwindcss').Config} */
 module.exports = {
     darkMode: ["class"],

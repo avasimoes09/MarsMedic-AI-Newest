@@ -1,3 +1,4 @@
+// Hosts the vital-sign and environmental Bluetooth sensor panels.
 import PageHeader from '@/components/PageHeader';
 import VitalsTelemetry from '@/components/VitalsTelemetry';
 import EnvironmentalTelemetry from '@/components/EnvironmentalTelemetry';

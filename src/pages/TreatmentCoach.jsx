@@ -1,3 +1,4 @@
+// Presents step-by-step guidance associated with an assessment result.
 import { useMission } from '@/lib/MissionContext';
 import { useNavigate } from 'react-router-dom';
 import PageHeader from '@/components/PageHeader';

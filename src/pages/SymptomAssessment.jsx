@@ -1,3 +1,4 @@
+// Collects symptoms and presents locally calculated assessment guidance.
 import { useState, useEffect, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useMission } from '@/lib/MissionContext';

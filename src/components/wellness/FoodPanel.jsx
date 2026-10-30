@@ -1,3 +1,4 @@
+// Records and displays locally stored food and drink entries.
 import { useState } from 'react';
 import { Utensils, Save, Trash2 } from 'lucide-react';
 import { AMOUNT_OPTIONS, FOOD_UNITS, SPACE_FOODS, formatClock, todayISO } from '@/lib/wellnessData';

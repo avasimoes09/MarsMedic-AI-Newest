@@ -1,3 +1,4 @@
+// Converts and formats temperatures while keeping Celsius as the stored unit.
 export function celsiusToFahrenheit(celsius) {
   return (Number(celsius) * 9) / 5 + 32;
 }

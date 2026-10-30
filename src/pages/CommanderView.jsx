@@ -1,3 +1,4 @@
+// Lists locally saved patient records and assessment findings.
 import { useMission } from '@/lib/MissionContext';
 import PageHeader from '@/components/PageHeader';
 import { FileText } from 'lucide-react';

@@ -1,3 +1,4 @@
+// Tracks local sleep and nutrition entries and displays pattern insights.
 import { useEffect, useMemo, useState } from 'react';
 import { useMission } from '@/lib/MissionContext';
 import PageHeader from '@/components/PageHeader';

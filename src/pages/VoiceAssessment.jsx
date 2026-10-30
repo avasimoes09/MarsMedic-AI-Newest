@@ -1,3 +1,4 @@
+// Demonstrates the voice-assessment flow and links to symptom assessment.
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import PageHeader from '@/components/PageHeader';

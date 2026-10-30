@@ -1,3 +1,4 @@
+// Maintains toast state and exposes actions to show or dismiss notifications.
 // Inspired by react-hot-toast library
 import { useState, useEffect } from "react";
 

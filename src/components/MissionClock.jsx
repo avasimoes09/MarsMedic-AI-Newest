@@ -1,3 +1,4 @@
+// Shows the elapsed mission time in the app shell.
 import { useEffect, useState } from 'react';
 
 export default function MissionClock() {

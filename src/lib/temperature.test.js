@@ -1,3 +1,4 @@
+// Tests temperature conversion, formatting, and missing-value handling.
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { celsiusToFahrenheit, fahrenheitToCelsius, formatTemperature } from './temperature.js';

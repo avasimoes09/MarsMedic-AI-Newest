@@ -1,3 +1,4 @@
+// Starts the local-only Electron desktop window and service.
 const { app, BrowserWindow, dialog, session } = require('electron');
 const path = require('node:path');
 const { once } = require('node:events');

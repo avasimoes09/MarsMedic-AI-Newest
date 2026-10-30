@@ -1,3 +1,4 @@
+// Renders a consistent page title and navigation back to Home.
 import { ArrowLeft } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 

@@ -1,3 +1,4 @@
+// Implements local SQLite storage and encryption for patient account data.
 import {
   createCipheriv,
   createDecipheriv,

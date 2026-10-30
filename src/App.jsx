@@ -1,3 +1,4 @@
+// Defines app providers and routes for every screen.
 import { Toaster } from "@/components/ui/toaster"
 import { QueryClientProvider } from '@tanstack/react-query'
 import { queryClientInstance } from '@/lib/query-client'
@@ -10,7 +11,6 @@ import CrewSelection from '@/pages/CrewSelection';
 import MissionShell from '@/components/MissionShell';
 import Dashboard from '@/pages/Dashboard';
 import DigitalTwin from '@/pages/DigitalTwin';
-import BodyMap from '@/pages/BodyMap';
 import SymptomAssessment from '@/pages/SymptomAssessment';
 import SpaceMedicine from '@/pages/SpaceMedicine';
 import Devices from '@/pages/Devices';
@@ -34,7 +34,6 @@ const AuthenticatedApp = () => (
     <Route element={<MissionShell />}>
       <Route path="/dashboard" element={<Dashboard />} />
       <Route path="/twin" element={<DigitalTwin />} />
-      <Route path="/body" element={<BodyMap />} />
       <Route path="/assessment" element={<SymptomAssessment />} />
       <Route path="/copilot" element={<Navigate to="/emergency" replace />} />
       <Route path="/space-medicine" element={<SpaceMedicine />} />

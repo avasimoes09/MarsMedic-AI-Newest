@@ -1,3 +1,4 @@
+// Maps selected symptoms to follow-up questions and scoring bonuses.
 // Follow-up questions shown after symptoms are selected, keyed by the
 // triggering symptom. Answers feed the diagnosis engine as confidence
 // bonuses (FOLLOWUP_BONUSES), narrowing the differential diagnosis.

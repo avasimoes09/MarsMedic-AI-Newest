@@ -1,3 +1,4 @@
+// Shows readiness information and shortcuts to the main app tools.
 import { useNavigate } from 'react-router-dom';
 import { useMission } from '@/lib/MissionContext';
 import { INVENTORY as SEED } from '@/lib/missionData';

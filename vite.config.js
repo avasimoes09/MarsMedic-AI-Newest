@@ -1,3 +1,4 @@
+// Configures the frontend build, offline PWA, and local API/LAN development server.
 import react from '@vitejs/plugin-react'
 import { defineConfig } from 'vite'
 import { VitePWA } from 'vite-plugin-pwa'

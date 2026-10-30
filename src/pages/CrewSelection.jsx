@@ -1,3 +1,4 @@
+// Edits the active patient's profile, PIN, and passkey settings.
 import { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useMission } from '@/lib/MissionContext';

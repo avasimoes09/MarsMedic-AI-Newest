@@ -1,3 +1,4 @@
+// Provides the signed-in layout, navigation, and access-aware screen shell.
 import { Outlet, useNavigate, Navigate, NavLink } from 'react-router-dom';
 import { useMission } from '@/lib/MissionContext';
 import MissionClock from './MissionClock';

@@ -1,3 +1,4 @@
+// Connects to Bluetooth environmental sensors and decodes their readings.
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 const ENVIRONMENTAL_SENSING_SERVICE = 0x181a;

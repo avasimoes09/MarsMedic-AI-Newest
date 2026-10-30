@@ -1,3 +1,4 @@
+// Guides patients through the on-screen emergency protocol.
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMission } from '@/lib/MissionContext';

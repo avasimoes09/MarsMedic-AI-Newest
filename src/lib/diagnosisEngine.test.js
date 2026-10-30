@@ -1,3 +1,4 @@
+// Tests assessment scoring against symptom and patient-history scenarios.
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { runDiagnosis } from './diagnosisEngine.js';

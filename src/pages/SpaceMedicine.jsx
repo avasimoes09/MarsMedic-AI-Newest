@@ -1,3 +1,4 @@
+// Presents built-in reference information about space-related conditions.
 import { useState } from 'react';
 import PageHeader from '@/components/PageHeader';
 import { SPACE_CONDITIONS } from '@/lib/missionData';

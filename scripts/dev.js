@@ -1,3 +1,4 @@
+// Starts the local API and Vite development server as a coordinated process.
 import { spawn } from 'node:child_process';
 
 const processes = [

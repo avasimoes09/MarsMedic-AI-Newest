@@ -1,3 +1,4 @@
+// Resets the viewport position when the current route changes.
 import { useEffect } from "react";
 import { useLocation, useNavigationType } from "react-router-dom";
 

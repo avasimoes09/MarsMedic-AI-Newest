@@ -1,3 +1,4 @@
+// Displays environmental sensor readings and patient-record controls.
 import { useMission } from '@/lib/MissionContext';
 import { celsiusToFahrenheit } from '@/lib/temperature';
 import { useEnvironmentalDevice } from '@/hooks/useEnvironmentalDevice';

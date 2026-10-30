@@ -1,3 +1,4 @@
+// Provides a clock-style picker for entering sleep and wake times.
 import { pad2 } from '@/lib/wellnessData';
 
 const HOURS = Array.from({ length: 24 }, (_, i) => i);

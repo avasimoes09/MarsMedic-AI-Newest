@@ -1,3 +1,4 @@
+// Summarizes wellness patterns and lets patients save or dismiss insights.
 import { Activity, Save, Trash2, AlertTriangle, Eye, Info, CheckCircle2 } from 'lucide-react';
 import { SLEEP_TARGET, fmtDuration } from '@/lib/wellnessPatterns';
 

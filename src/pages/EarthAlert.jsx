@@ -1,3 +1,4 @@
+// Reviews patient alert details and queues reports locally without transmitting.
 import { useState } from 'react';
 import { useMission } from '@/lib/MissionContext';
 import PageHeader from '@/components/PageHeader';

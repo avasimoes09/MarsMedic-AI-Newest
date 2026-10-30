@@ -1,3 +1,4 @@
+// Connects to Bluetooth vital-sign devices and decodes their measurements.
 import { useState, useRef, useCallback, useEffect } from 'react';
 
 function decodeSFloat(dataView, offset) {

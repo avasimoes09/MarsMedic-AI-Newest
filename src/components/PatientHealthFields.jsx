@@ -1,3 +1,4 @@
+// Collects and formats the patient's editable health-profile details.
 import { useMission } from '@/lib/MissionContext';
 import { celsiusToFahrenheit, fahrenheitToCelsius } from '@/lib/temperature';
 

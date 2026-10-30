@@ -1,3 +1,4 @@
+// Provides general reference guidance for vital readings and symptoms.
 const symptomContext = {
   heartRateHigh: ['palpitations', 'shortness_of_breath', 'dizziness', 'chest_pain'],
   heartRateLow: ['dizziness', 'weakness', 'confusion', 'shortness_of_breath'],

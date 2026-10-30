@@ -1,3 +1,4 @@
+// Displays a helpful destination when a route does not exist.
 import { useLocation } from 'react-router-dom';
 
 export default function PageNotFound({}) {

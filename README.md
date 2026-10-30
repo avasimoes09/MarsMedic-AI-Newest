@@ -2,6 +2,8 @@
 
 MarsMedic AI is a standalone local app. It does not use Base44 or require a hosted backend, GitHub, external fonts, or email. Once its dependencies are installed and the app is built, it runs on the computer that hosts it and works without an internet connection. Ubuntu fonts are bundled with the app for offline use. Patients create a unique username and four-digit PIN, then can optionally add a device passkey. Patient accounts and records are stored in a local SQLite database; health details are encrypted at rest, and each account only receives its own profile after PIN or passkey authentication.
 
+For a plain-English map of the folders, source files, screens, and what the app's buttons do, see the [MarsMedic AI project guide](./PROJECT-GUIDE.md).
+
 The Devices page includes vital-sign and environmental BLE tabs. Environmental readings are available from compatible Bluetooth Environmental Sensing Service sensors; unsupported or missing sensor values are left blank. Temperature units can be switched between Celsius and Fahrenheit in the UI, while stored values and clinical thresholds remain in Celsius.
 
 Connected BLE readings are shown live and are not uploaded or automatically recorded. Signed-in patients can explicitly save real vital-sign or environmental sensor readings to their encrypted local patient record from the Devices page. Simulated readings are never saved. Fingerprint sign-in uses WebAuthn passkeys: account creation and the profile page register Windows Hello platform authentication, including a VeriMark sensor enrolled with Windows Hello. A separate profile action is available for external FIDO2 security keys. Fingerprint verification stays on the authenticator; MarsMedic stores only the passkey credential.

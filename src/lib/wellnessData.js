@@ -1,3 +1,4 @@
+// Supplies food choices, units, and date/time helpers for wellness tracking.
 // Common space-flight foods (ISS-style menu) used to preload the food logger.
 export const SPACE_FOODS = [
   'Tortilla (flour)',
